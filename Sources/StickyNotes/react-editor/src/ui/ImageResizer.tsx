@@ -6,12 +6,12 @@
  *
  */
 
-import type {LexicalEditor} from 'lexical';
-import type {JSX} from 'react';
+import type { LexicalEditor } from 'lexical';
+import type { JSX } from 'react';
 
-import {calculateZoomLevel} from '@lexical/utils';
+import { calculateZoomLevel } from '@lexical/utils';
 import * as React from 'react';
-import {useRef} from 'react';
+import { useRef } from 'react';
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -36,8 +36,8 @@ export default function ImageResizer({
   captionsEnabled,
 }: {
   editor: LexicalEditor;
-  buttonRef: {current: null | HTMLButtonElement};
-  imageRef: {current: null | HTMLElement};
+  buttonRef: { current: null | HTMLButtonElement };
+  imageRef: { current: null | HTMLElement };
   maxWidth?: number;
   onResizeEnd: (width: 'inherit' | number, height: 'inherit' | number) => void;
   onResizeStart: () => void;
@@ -45,7 +45,7 @@ export default function ImageResizer({
   showCaption: boolean;
   captionsEnabled: boolean;
 }): JSX.Element {
-  const controlWrapperRef = useRef<HTMLDivElement>(null);
+  const controlWrapperRef = useRef<HTMLSpanElement>(null);
   const userSelect = useRef({
     priority: '',
     value: 'default',
@@ -137,7 +137,7 @@ export default function ImageResizer({
   };
 
   const handlePointerDown = (
-    event: React.PointerEvent<HTMLDivElement>,
+    event: React.PointerEvent<HTMLElement>,
     direction: number,
   ) => {
     if (!editor.isEditable()) {
@@ -149,7 +149,7 @@ export default function ImageResizer({
 
     if (image !== null && controlWrapper !== null) {
       event.preventDefault();
-      const {width, height} = image.getBoundingClientRect();
+      const { width, height } = image.getBoundingClientRect();
       const zoom = calculateZoomLevel(image);
       const positioning = positioningRef.current;
       positioning.startWidth = width;
@@ -253,7 +253,7 @@ export default function ImageResizer({
     }
   };
   return (
-    <div ref={controlWrapperRef}>
+    <span ref={controlWrapperRef} className="image-control-wrapper" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none' }}>
       {!showCaption && captionsEnabled && (
         <button
           className="image-caption-button"
@@ -264,13 +264,13 @@ export default function ImageResizer({
           Add Caption
         </button>
       )}
-      <div
+      <span
         className="image-resizer image-resizer-n"
         onPointerDown={(event) => {
           handlePointerDown(event, Direction.north);
         }}
       />
-      <div
+      <span
         className="image-resizer image-resizer-ne"
         onPointerDown={(event) => {
           handlePointerDown(event, Direction.north | Direction.east);
@@ -312,6 +312,6 @@ export default function ImageResizer({
           handlePointerDown(event, Direction.north | Direction.west);
         }}
       />
-    </div>
+    </span>
   );
 }

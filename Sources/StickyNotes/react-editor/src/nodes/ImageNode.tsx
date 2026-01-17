@@ -147,6 +147,10 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     }).updateFromJSON(serializedNode);
   }
 
+  isInline(): boolean {
+    return true;
+  }
+
   updateFromJSON(serializedNode: LexicalUpdateJSON<SerializedImageNode>): this {
     const node = super.updateFromJSON(serializedNode);
     const { caption } = serializedNode;
@@ -278,6 +282,8 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
         ],
       });
     this.__captionsEnabled = captionsEnabled || captionsEnabled === undefined;
+    // @ts-ignore
+    this.isInline = () => true;
   }
 
   exportJSON(): SerializedImageNode {
@@ -316,6 +322,10 @@ export class ImageNode extends DecoratorNode<JSX.Element> {
     if (className !== undefined) {
       span.className = className;
     }
+    // Force inline behavior to prevent full-width layout
+    span.style.display = 'inline-block';
+    span.style.width = 'auto';
+    span.style.maxWidth = '100%';
     return span;
   }
 

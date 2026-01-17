@@ -43,3 +43,81 @@
 .image-control-wrapper--resizing {
   touch-action: none;
 }
+
+/* Added for Image Resizer */
+
+.image-control-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.image-resizer {
+  display: block;
+  width: 10px;
+  height: 10px;
+  position: absolute;
+  background-color: rgb(60, 132, 244);
+  border: 1px solid #fff;
+  z-index: 2;
+}
+
+.image-resizer-n {
+  top: -6px;
+  left: 48%;
+  cursor: n-resize;
+}
+
+.image-resizer-ne {
+  top: -6px;
+  right: -6px;
+  cursor: ne-resize;
+}
+
+.image-resizer-e {
+  bottom: 48%;
+  right: -6px;
+  cursor: e-resize;
+}
+
+.image-resizer-se {
+  bottom: -6px;
+  right: -6px;
+  cursor: se-resize;
+}
+
+.image-resizer-s {
+  bottom: -6px;
+  left: 48%;
+  cursor: s-resize;
+}
+
+.image-resizer-sw {
+  bottom: -6px;
+  left: -6px;
+  cursor: sw-resize;
+}
+
+.image-resizer-w {
+  bottom: 48%;
+  left: -6px;
+  cursor: w-resize;
+}
+
+.image-resizer-nw {
+  top: -6px;
+  left: -6px;
+  cursor: nw-resize;
+}
+
+.editor-image {
+  display: inline-block;
+  position: relative;
+}
+
+.editor-image.focused {
+  outline: 2px solid rgb(60, 132, 244);
+  user-select: none;
+}

@@ -18,6 +18,9 @@ import { SharedHistoryContext } from './context/SharedHistoryContext';
 import ToolbarPlugin from './plugins/ToolbarPlugin';
 import ImagesPlugin from './plugins/ImagesPlugin';
 import TableActionMenuPlugin from './plugins/TableActionMenuPlugin';
+import TableCellResizerPlugin from './plugins/TableCellResizer';
+import TableHoverActionsPlugin from './plugins/TableHoverActionsV2Plugin';
+import DraggableBlockPlugin from './plugins/DraggableBlockPlugin';
 import DragDropPastePlugin from './plugins/DragDropPastePlugin';
 import PlaygroundNodes from './nodes/PlaygroundNodes';
 import PlaygroundEditorTheme from './themes/PlaygroundEditorTheme';
@@ -84,6 +87,9 @@ function Editor() {
                     <ImagesPlugin />
                     <DragDropPastePlugin />
                     <TableActionMenuPlugin />
+                    <TableCellResizerPlugin />
+                    <TableHoverActionsPlugin />
+                    <DraggableBlockPlugin />
                     <OnChangePlugin onChange={onChange} />
                 </div>
             </div>

@@ -452,7 +452,7 @@ export default function ImageComponent({
   return (
     <Suspense fallback={null}>
       <>
-        <div draggable={draggable}>
+        <span draggable={draggable} className="image-wrapper" style={{ display: 'inline-block', position: 'relative', verticalAlign: 'baseline', maxWidth: '100%', margin: '0 4px' }}>
           {isLoadError ? (
             <BrokenImage />
           ) : (
@@ -471,7 +471,20 @@ export default function ImageComponent({
               onError={() => setIsLoadError(true)}
             />
           )}
-        </div>
+          {resizable && isInNodeSelection && isFocused && (
+            <ImageResizer
+              showCaption={showCaption}
+              setShowCaption={setShowCaption}
+              editor={editor}
+              buttonRef={buttonRef}
+              imageRef={imageRef}
+              maxWidth={maxWidth}
+              onResizeStart={onResizeStart}
+              onResizeEnd={onResizeEnd}
+              captionsEnabled={!isLoadError && captionsEnabled}
+            />
+          )}
+        </span>
 
         {showCaption && (
           <div className="image-caption-container">
@@ -492,19 +505,7 @@ export default function ImageComponent({
             </LexicalNestedComposer>
           </div>
         )}
-        {resizable && isInNodeSelection && isFocused && (
-          <ImageResizer
-            showCaption={showCaption}
-            setShowCaption={setShowCaption}
-            editor={editor}
-            buttonRef={buttonRef}
-            imageRef={imageRef}
-            maxWidth={maxWidth}
-            onResizeStart={onResizeStart}
-            onResizeEnd={onResizeEnd}
-            captionsEnabled={!isLoadError && captionsEnabled}
-          />
-        )}
+
       </>
     </Suspense>
   );
