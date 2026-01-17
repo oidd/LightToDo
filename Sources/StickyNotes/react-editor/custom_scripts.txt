@@ -1,0 +1,110 @@
+
+</html><script>
+    (function () {
+        // ==========================================
+        // TRANSLATION LOGIC (Preserved)
+        // ==========================================
+        const TRANSLATIONS = {
+            "Normal": "正文", "Heading 1": "标题 1", "Heading 2": "标题 2", "Heading 3": "标题 3",
+            "Check List": "待办列表", "Bullet List": "无序列表", "Numbered List": "有序列表",
+            "Quote": "引用", "Code Block": "代码块",
+            "Left Align": "左对齐", "Center Align": "居中对齐", "Right Align": "右对齐", "Justify Align": "两端对齐",
+            "Outdent": "减少缩进", "Indent": "增加缩进",
+            "Bold": "加粗", "Italic": "斜体", "Underline": "下划线", "Strikethrough": "删除线",
+            "Subscript": "下标", "Superscript": "上标",
+            "Insert Link": "插入链接", "Insert Image": "插入图片",
+            "Enter some text...": "输入内容...",
+            "Enter text...": "输入内容..."
+        };
+
+        function walk(node) {
+            if (node.nodeType === 3) {
+                const text = node.nodeValue.trim();
+                if (text && TRANSLATIONS[text]) node.nodeValue = node.nodeValue.replace(text, TRANSLATIONS[text]);
+            } else if (node.nodeType === 1) {
+                if (node.placeholder && TRANSLATIONS[node.placeholder]) node.placeholder = TRANSLATIONS[node.placeholder];
+                Array.from(node.childNodes).forEach(walk);
+                if (node.title && TRANSLATIONS[node.title]) node.title = TRANSLATIONS[node.title];
+                if (node.getAttribute('aria-label') && TRANSLATIONS[node.getAttribute('aria-label')]) {
+                    node.setAttribute('aria-label', TRANSLATIONS[node.getAttribute('aria-label')]);
+                }
+            }
+        }
+
+        const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                for (const node of mutation.addedNodes) walk(node);
+                if (mutation.type === 'attributes' && (mutation.attributeName === 'title' || mutation.attributeName === 'aria-label')) {
+                    const node = mutation.target;
+                    const val = node.getAttribute(mutation.attributeName);
+                    if (val && TRANSLATIONS[val]) node.setAttribute(mutation.attributeName, TRANSLATIONS[val]);
+                }
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['title', 'aria-label'] });
+        walk(document.body);
+
+        // ==========================================
+        // NEW NOTE BUTTON INJECTION & LAYOUT WRAPPER
+        // ==========================================
+        function injectNewNoteButton() {
+            const toolbar = document.querySelector('.toolbar');
+            if (!toolbar) return;
+
+            // Avoid double injection
+            if (document.querySelector('.toolbar-wrapper')) return;
+
+            // Create Wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'toolbar-wrapper';
+
+            // Insert Wrapper before Toolbar
+            toolbar.parentNode.insertBefore(wrapper, toolbar);
+
+            // Create New Note Button
+            const btn = document.createElement('button');
+            btn.className = 'new-note-btn';
+            btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+            btn.onclick = function () {
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.editor) {
+                    window.webkit.messageHandlers.editor.postMessage({ type: 'newNote' });
+                }
+            };
+
+            // Add Button and Toolbar to Wrapper
+            wrapper.appendChild(btn);
+            wrapper.appendChild(toolbar);
+        }
+
+        // Try to inject immediately and then observe for toolbar appearance
+        document.addEventListener('DOMContentLoaded', () => {
+            injectNewNoteButton();
+
+            // Fallback observer in case toolbar loads late (React)
+            const layoutObserver = new MutationObserver((mutations) => {
+                if (document.querySelector('.toolbar') && !document.querySelector('.toolbar-wrapper')) {
+                    injectNewNoteButton();
+                }
+            });
+            layoutObserver.observe(document.body, { childList: true, subtree: true });
+
+            // IDLE STATE DETECTION
+            window.addEventListener('focus', () => {
+                document.body.classList.remove('inactive');
+            });
+            window.addEventListener('blur', () => {
+                document.body.classList.add('inactive');
+            });
+
+            // Set initial state
+            if (!document.hasFocus()) {
+                document.body.classList.add('inactive');
+            }
+        });
+
+    })();
+</script>

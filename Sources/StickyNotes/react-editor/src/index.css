@@ -19,7 +19,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: #eee;
-  padding: 0 20px;
+  padding: 0;
 }
 
 header {
@@ -50,9 +50,9 @@ header h1 {
 }
 
 .editor-shell {
-  margin: 20px auto;
-  border-radius: 2px;
-  max-width: 1100px;
+  margin: 0;
+  border-radius: 0;
+  max-width: none;
   color: #000;
   position: relative;
   line-height: 1.7;
@@ -191,7 +191,7 @@ pre::-webkit-scrollbar-thumb {
   box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.4);
 }
 
-.test-recorder-button + .test-recorder-button {
+.test-recorder-button+.test-recorder-button {
   margin-left: 4px;
 }
 
@@ -865,7 +865,7 @@ i.page-break,
     display: none !important;
   }
 
-  .dialog-dropdown > .dropdown-button-text {
+  .dialog-dropdown>.dropdown-button-text {
     display: flex !important;
   }
 
@@ -1288,10 +1288,12 @@ i.page-break,
   left: 0;
   will-change: transform;
 }
+
 .table-cell-action-button-container.table-cell-action-button-container--active {
   pointer-events: auto;
   opacity: 1;
 }
+
 .table-cell-action-button-container.table-cell-action-button-container--inactive {
   pointer-events: none;
   opacity: 0;
@@ -1443,7 +1445,8 @@ button.action-button:disabled {
   position: sticky;
   top: 0;
   z-index: 2;
-  overflow-y: hidden; /* disable vertical scroll*/
+  overflow-y: hidden;
+  /* disable vertical scroll*/
 }
 
 .toolbar .toolbar-item:focus {
@@ -1594,24 +1597,20 @@ button.toolbar-item.active i {
 
 .sticky-note.yellow {
   border-top: 1px solid #fdfd86;
-  background: linear-gradient(
-    135deg,
-    #ffff88 81%,
-    #ffff88 82%,
-    #ffff88 82%,
-    #ffffc6 100%
-  );
+  background: linear-gradient(135deg,
+      #ffff88 81%,
+      #ffff88 82%,
+      #ffff88 82%,
+      #ffffc6 100%);
 }
 
 .sticky-note.pink {
   border-top: 1px solid #e7d1e4;
-  background: linear-gradient(
-    135deg,
-    #f7cbe8 81%,
-    #f7cbe8 82%,
-    #f7cbe8 82%,
-    #e7bfe1 100%
-  );
+  background: linear-gradient(135deg,
+      #f7cbe8 81%,
+      #f7cbe8 82%,
+      #f7cbe8 82%,
+      #e7bfe1 100%);
 }
 
 .sticky-note-container.dragging {
@@ -1676,6 +1675,7 @@ button.toolbar-item.active i {
 }
 
 @keyframes octocat-wave {
+
   0%,
   100% {
     transform: rotate(0);

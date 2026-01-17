@@ -14,6 +14,8 @@ import { ListItemNode, ListNode } from '@lexical/list';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import { TableCellNode, TableNode, TableRowNode } from '@lexical/table';
 
+import { ImageNode } from './ImageNode';
+
 const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   HeadingNode,
   ListNode,
@@ -26,6 +28,7 @@ const PlaygroundNodes: Array<Klass<LexicalNode>> = [
   CodeHighlightNode,
   AutoLinkNode,
   LinkNode,
+  ImageNode,
 ];
 
 export default PlaygroundNodes;

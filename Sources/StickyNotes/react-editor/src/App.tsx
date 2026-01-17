@@ -6,6 +6,7 @@ import { AutoFocusPlugin } from '@lexical/react/LexicalAutoFocusPlugin';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { CheckListPlugin } from '@lexical/react/LexicalCheckListPlugin';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
+import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
@@ -15,6 +16,9 @@ import { SettingsContext } from './context/SettingsContext';
 import { ToolbarContext } from './context/ToolbarContext';
 import { SharedHistoryContext } from './context/SharedHistoryContext';
 import ToolbarPlugin from './plugins/ToolbarPlugin';
+import ImagesPlugin from './plugins/ImagesPlugin';
+import TableActionMenuPlugin from './plugins/TableActionMenuPlugin';
+import DragDropPastePlugin from './plugins/DragDropPastePlugin';
 import PlaygroundNodes from './nodes/PlaygroundNodes';
 import PlaygroundEditorTheme from './themes/PlaygroundEditorTheme';
 import { useState, useEffect } from 'react';
@@ -66,16 +70,22 @@ function Editor() {
                 setIsLinkEditMode={setIsLinkEditMode}
             />
             <div className="editor-container">
-                <RichTextPlugin
-                    contentEditable={<ContentEditable className="editor-input" />}
-                    placeholder={<div className="editor-placeholder">Start typing...</div>}
-                    ErrorBoundary={LexicalErrorBoundary}
-                />
-                <HistoryPlugin />
-                <AutoFocusPlugin />
-                <ListPlugin />
-                <CheckListPlugin />
-                <OnChangePlugin onChange={onChange} />
+                <div className="editor-scroller">
+                    <RichTextPlugin
+                        contentEditable={<ContentEditable className="editor-input" />}
+                        placeholder={<div className="editor-placeholder">Start typing...</div>}
+                        ErrorBoundary={LexicalErrorBoundary}
+                    />
+                    <HistoryPlugin />
+                    <AutoFocusPlugin />
+                    <ListPlugin />
+                    <CheckListPlugin />
+                    <TablePlugin />
+                    <ImagesPlugin />
+                    <DragDropPastePlugin />
+                    <TableActionMenuPlugin />
+                    <OnChangePlugin onChange={onChange} />
+                </div>
             </div>
         </div>
     );
