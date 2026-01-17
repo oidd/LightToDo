@@ -1,0 +1,50 @@
+/**
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
+
+.color-picker-wrapper {
+  padding: 12px;
+}
+
+.color-picker-basic-color {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+.color-picker-btn {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  height: 28px;
+  width: 28px;
+  cursor: pointer;
+  list-style-type: none;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.color-picker-btn:hover {
+  transform: scale(1.1);
+}
+
+.color-picker-btn.active {
+  box-shadow: 0px 0px 0px 2px rgba(0, 0, 0, 0.3);
+  transform: scale(1.1);
+}
+
+/* 透明色 - 棋盘格背景 */
+.color-picker-btn.transparent {
+  background-image: 
+    linear-gradient(45deg, #aaa 25%, transparent 25%),
+    linear-gradient(-45deg, #aaa 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #aaa 75%),
+    linear-gradient(-45deg, transparent 75%, #aaa 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+  background-color: #fff;
+}

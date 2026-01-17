@@ -1,0 +1,263 @@
+/* =========================================
+   VARIABLES & THEME CONFIGURATION
+   ========================================= */
+:root {
+    --app-bg: #ffffff;
+    --module-bg: #ffffff;
+    --text-color: #1a1a1a;
+    --border-color: #f0f0f0;
+    --active-bg: #f5f5f5;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --gap-size: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --app-bg: #1c1c1e;
+        --module-bg: #2c2c2e;
+        --text-color: #ffffff;
+        --border-color: rgba(255, 255, 255, 0.1);
+        --active-bg: #404040;
+        --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .icon,
+    button.toolbar-item i,
+    .editor-dev-button:after,
+    .test-recorder-button:after,
+    .new-note-btn svg {
+        filter: invert(1);
+    }
+
+    button.toolbar-item.active i {
+        filter: invert(1);
+    }
+
+    .new-note-btn {
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+}
+
+/* =========================================
+   INACTIVE STATE (IDLE)
+   ========================================= */
+body.inactive .toolbar,
+body.inactive .new-note-btn {
+    box-shadow: none !important;
+    background-color: #f7f7f7 !important;
+    border: none !important;
+}
+
+@media (prefers-color-scheme: dark) {
+
+    body.inactive .toolbar,
+    body.inactive .new-note-btn {
+        background-color: #252527 !important;
+        border: none !important;
+    }
+}
+
+/* =========================================
+   LAYOUT ARCHITECTURE - RIGID RESET
+   ========================================= */
+html,
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    background-color: var(--app-bg) !important;
+}
+
+#root {
+    margin: 0 !important;
+    /* BASE 20px PADDING - CORE ANCHOR */
+    padding: 4px 20px 24px 20px !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
+}
+
+.editor-shell {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    align-items: flex-start !important;
+    box-sizing: border-box !important;
+}
+
+/* =========================================
+   TOOLBAR WRAPPER - PHYSICS ALIGNMENT
+   ========================================= */
+.toolbar-wrapper {
+    display: flex !important;
+    align-items: center !important;
+    gap: 16px !important;
+
+    /* FIX: LOCALIZED WIDTH ONLY - ENSURES NO TEXT SHIFT */
+    width: fit-content !important;
+
+    margin-top: 0 !important;
+    margin-bottom: 8px !important;
+    padding: 10px !important;
+
+    /* ALIGNMENT: Landing at 20px exactly on the red line */
+    margin-left: -10px !important;
+    margin-right: auto !important;
+
+    box-sizing: border-box !important;
+}
+
+.new-note-btn {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 50% !important;
+    background-color: var(--module-bg) !important;
+    border: none !important;
+    box-shadow: var(--shadow) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    flex-shrink: 0 !important;
+}
+
+.new-note-btn:hover {
+    background-color: var(--active-bg) !important;
+    transform: scale(1.05) !important;
+}
+
+.new-note-btn:active {
+    transform: scale(0.95) !important;
+}
+
+/* =========================================
+   TOOLBAR - FIXED SIZE (NON-DEFORMABLE)
+   ========================================= */
+.toolbar {
+    background-color: var(--module-bg) !important;
+    border: none !important;
+    border-radius: 999px !important;
+    margin: 0 !important;
+    box-shadow: var(--shadow) !important;
+    z-index: 100 !important;
+
+    /* PREVENTS DEFORMATION */
+    min-width: max-content !important;
+    flex-shrink: 0 !important;
+
+    display: flex !important;
+    padding: 4px 16px !important;
+    height: auto !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+}
+
+@media (prefers-color-scheme: dark) {
+    .toolbar:not(.inactive *) {
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+}
+
+/* =========================================
+   EDITOR CONTENT - PRECISION 44px PADDING
+   ========================================= */
+.editor-shell .editor-container {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.editor-scroller {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+
+    /* THE 44px OFFSET: 20 (Root) + 44 = 64px total symmetry */
+    padding: 0 44px !important;
+
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+}
+
+.editor-input,
+.ContentEditable__root,
+[contenteditable] {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+}
+
+.editor {
+    flex: 1 !important;
+    outline: none !important;
+    width: 100% !important;
+}
+
+@media (prefers-color-scheme: dark) {
+
+    .ContentEditable__root,
+    .ContentEditable__root *,
+    .ContentEditable__root span[style],
+    [contenteditable] * {
+        color: #ffffff !important;
+        caret-color: #ffffff !important;
+    }
+}
+
+/* FEATURE TOGGLES */
+.editor-placeholder {
+    display: none !important;
+}
+
+button.toolbar-item:has(i.undo),
+button.toolbar-item:has(i.redo) {
+    display: none !important;
+}
+
+.font-size-input,
+button.font-decrement,
+button.font-increment,
+button.toolbar-item:has(i.minus-icon),
+button.toolbar-item:has(i.plus-icon) {
+    display: none !important;
+}
+
+button.toolbar-item.font-family,
+.font-family {
+    display: none !important;
+}
+
+button.toolbar-item:has(i.code),
+button.toolbar-item:has(i.link) {
+    display: none !important;
+}
+
+.toolbar .divider {
+    display: none !important;
+}
+
+.ContentEditable__root:focus,
+[contenteditable]:focus {
+    outline: none !important;
+}

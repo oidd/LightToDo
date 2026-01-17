@@ -1,0 +1,87 @@
+import SwiftUI
+
+struct EditorView: View {
+    @EnvironmentObject var notesManager: NotesManager
+    @Environment(\.controlActiveState) var controlActiveState
+    @Binding var editorMode: String // 从 MainView 接收
+    var isSidebarCollapsed: Bool
+    @State private var content: String = ""
+    @State private var editorReady: Bool = false
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            if let selectedId = notesManager.selectedNoteId,
+               let _ = notesManager.notes.first(where: { $0.id == selectedId }) {
+                
+                // 顶部留白区域 (SwiftUI)，避开红绿灯按钮
+                Color.clear
+                    .frame(height: 44)
+                
+                // Quill 富文本编辑器（仅正文）
+                QuillEditor(
+                    content: $content,
+                    isWindowActive: controlActiveState == .key,
+                    currentMode: editorMode,
+                    onContentUpdate: {
+                        saveContent()
+                    },
+                    onReady: {
+                        editorReady = true
+                    },
+                    onNewNote: {
+                        withAnimation {
+                            _ = notesManager.addNote()
+                        }
+                    }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .onChange(of: notesManager.selectedNoteId) { _ in
+                    loadSelectedNote()
+                }
+                .onAppear {
+                    loadSelectedNote()
+                }
+            } else {
+                // 无选中文档时的占位视图 - 仅显示新建按钮
+                VStack {
+                    Button(action: {
+                        withAnimation {
+                            _ = notesManager.addNote()
+                        }
+                    }) {
+                        Label("新建笔记", systemImage: "square.and.pencil")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.leading, isSidebarCollapsed ? 20 : 260) // 展开时为阴影留出空间
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isSidebarCollapsed)
+    }
+    
+    private func loadSelectedNote() {
+        guard let selectedId = notesManager.selectedNoteId,
+              let note = notesManager.notes.first(where: { $0.id == selectedId }) else {
+            content = ""
+            return
+        }
+        
+        content = note.content.isEmpty ? "<p><br></p>" : note.content
+        print("📝 加载笔记: \(note.id), 内容长度: \(content.count)")
+    }
+    
+    private func saveContent() {
+        guard let selectedId = notesManager.selectedNoteId,
+              var note = notesManager.notes.first(where: { $0.id == selectedId }) else { return }
+        
+        if note.content != content {
+            note.content = content
+            // 注意：Note 模型现在会自动根据 content 计算名为 displayTitle 的属性
+            notesManager.updateNote(note)
+            print("💾 保存内容，长度：\(content.count)")
+        }
+    }
+}

@@ -1,0 +1,29 @@
+# Build outputs
+.build/
+StickyNotes.app/
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+
+# Node.js
+node_modules/
+npm-debug.log
+.npm/
+
+# React build
+Sources/StickyNotes/react-editor/dist/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.log
