@@ -489,7 +489,7 @@ export default function ToolbarPlugin({
       // Handle buttons
       updateToolbarState(
         'fontColor',
-        $getSelectionStyleValueForProperty(selection, 'color', '#000'),
+        $getSelectionStyleValueForProperty(selection, 'color', ''),
       );
       updateToolbarState(
         'bgColor',

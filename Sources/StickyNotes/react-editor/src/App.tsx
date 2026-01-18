@@ -10,7 +10,7 @@ import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
-import { $getRoot, EditorState } from 'lexical';
+import { $getRoot, EditorState, TextNode, $setSelection } from 'lexical';
 
 import { SettingsContext } from './context/SettingsContext';
 import { ToolbarContext } from './context/ToolbarContext';
@@ -30,6 +30,7 @@ import ShortcutsPlugin from './plugins/ShortcutsPlugin';
 
 import { useState, useEffect } from 'react';
 import TodoView from './ui/TodoView';
+import { ExtendedTextNode } from './nodes/ExtendedTextNode';
 
 export type ViewMode = 'note' | 'todo';
 
@@ -58,6 +59,9 @@ function Editor() {
                 const root = $getRoot();
                 root.clear();
                 root.append(...nodes);
+
+                // Clear selection state during node swap to prevent cross-note style leaks
+                $setSelection(null);
             });
         };
 
@@ -142,7 +146,10 @@ function Editor() {
 export default function App() {
     const initialConfig = {
         namespace: 'StickyNotes',
-        nodes: [...PlaygroundNodes],
+        nodes: [
+            ...PlaygroundNodes,
+            ExtendedTextNode,
+        ],
         onError: (error: Error) => { console.error(error); },
         theme: PlaygroundEditorTheme,
     };

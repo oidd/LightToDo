@@ -6,13 +6,13 @@
  *
  */
 
-import type {JSX} from 'react';
+import type { JSX } from 'react';
 
 import './ColorPicker.css';
 
 import * as React from 'react';
 
-import {isKeyboardInput} from '../utils/focusUtils';
+import { isKeyboardInput } from '../utils/focusUtils';
 
 interface ColorPickerProps {
   color: string;
@@ -25,7 +25,7 @@ interface ColorPickerProps {
 
 // 8 colors: transparent + 7 fixed colors
 const basicColors = [
-  'transparent', // 透明色（使用系统默认色彩）
+  '',            // 默认颜色（移除自定义色彩）
   '#989898',     // 灰色
   '#e14a54',     // 红色
   '#ef8834',     // 橙色
@@ -56,15 +56,21 @@ export default function ColorPicker({
       className="color-picker-wrapper"
       ref={innerDivRef}>
       <div className="color-picker-basic-color">
-        {basicColors.map((basicColor, index) => (
-          <button
-            className={`color-picker-btn${basicColor === color ? ' active' : ''}${basicColor === 'transparent' ? ' transparent' : ''}`}
-            key={basicColor + index}
-            style={basicColor === 'transparent' ? undefined : {backgroundColor: basicColor}}
-            onClick={(e) => onBasicColorClick(e, basicColor)}
-            title={basicColor === 'transparent' ? '默认颜色' : basicColor}
-          />
-        ))}
+        {basicColors.map((basicColor, index) => {
+          const isSelected = basicColor === ''
+            ? (color === '' || color === 'rgb(0, 0, 0)' || color === '#000000' || color === 'transparent')
+            : (color !== '' && toHex(color) === toHex(basicColor));
+
+          return (
+            <button
+              className={`color-picker-btn${isSelected ? ' active' : ''}${basicColor === '' ? ' transparent' : ''}`}
+              key={basicColor + index}
+              style={basicColor === '' ? undefined : { backgroundColor: basicColor }}
+              onClick={(e) => onBasicColorClick(e, basicColor)}
+              title={basicColor === '' ? '默认颜色' : basicColor}
+            />
+          );
+        })}
       </div>
     </div>
   );
