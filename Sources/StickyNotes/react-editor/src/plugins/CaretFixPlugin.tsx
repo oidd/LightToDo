@@ -27,7 +27,7 @@ export default function CaretFixPlugin(): null {
             if (!caret) {
                 caret = document.createElement('div');
                 caret.id = 'custom-caret-pure';
-                caret.style.cssText = 'position:fixed;width:1.5px;pointer-events:none;z-index:10000;animation:caret-blink-pure 1s step-end infinite;';
+                caret.style.cssText = 'position:fixed;width:1.5px;pointer-events:none;z-index:1;animation:caret-blink-pure 1s step-end infinite;';
                 document.body.appendChild(caret);
 
                 const animStyle = document.createElement('style');
