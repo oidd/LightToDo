@@ -41,41 +41,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var localMonitor: Any?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // 配置窗口
+        // 寻找并配置初始窗口
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            if let window = NSApplication.shared.windows.first {
-                self.mainWindow = window
-                window.delegate = self // Set delegate to intercrpt close
-                
-                window.titlebarAppearsTransparent = true
-                window.titleVisibility = .hidden
-                window.styleMask.insert(.fullSizeContentView)
-                
-                // 强制禁用背景拖拽，多次尝试确保生效
-                window.isMovableByWindowBackground = false
-                
-                // 设置窗口背景为透明，允许 VisualEffectView 穿透显示壁纸
-                // 这是实现"液态玻璃"红底折射的关键：必须去掉 NSWindow 默认的不透明底色
-                window.isOpaque = false
-                window.backgroundColor = .clear
-                // window.hasShadow = false // 可选：如果不需要系统阴影
-                
-                // 补救措施：再设一次
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    window.isMovableByWindowBackground = false
+            for window in NSApplication.shared.windows {
+                if self.isMainWindow(window) {
+                    self.setupMainWindow(window)
+                    break
                 }
-                
-                // 隐藏标准窗口按钮
-                window.standardWindowButton(.closeButton)?.isHidden = true
-                window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-                window.standardWindowButton(.zoomButton)?.isHidden = true
-                
-                // 移除标题栏的高度占用
-                if let contentView = window.contentView {
-                    contentView.wantsLayer = true
-                }
-                
-                self.windowController = EdgeSnapWindowController(window: window)
             }
         }
         
@@ -84,6 +56,63 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false // Stay running if minimized
+    }
+    
+    func applicationDidBecomeActive(_ notification: Notification) {
+        if let window = mainWindow {
+            hideStandardButtons(for: window)
+        }
+    }
+    
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if let window = mainWindow {
+            if window.isMiniaturized {
+                window.deminiaturize(nil)
+            }
+            window.makeKeyAndOrderFront(nil)
+            hideStandardButtons(for: window)
+            return false // 关键：告知系统我们已经手动处理了恢复逻辑，不要新建 WindowGroup 窗口
+        }
+        return true
+    }
+    
+    // MARK: - Window Configuration
+    
+    private func isMainWindow(_ window: NSWindow) -> Bool {
+        // 排除设置窗口（根据尺寸或标题）
+        if window.frame.size.width == 450 && window.frame.size.height == 400 { return false }
+        if window.title == "Settings" || window.identifier?.rawValue == "com_apple_SwiftUI_Settings" { return false }
+        return true
+    }
+    
+    private func setupMainWindow(_ window: NSWindow) {
+        guard mainWindow == nil else { return }
+        self.mainWindow = window
+        window.delegate = self
+        
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.styleMask.insert(.fullSizeContentView)
+        
+        // 核心配置
+        window.isMovableByWindowBackground = false
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        
+        hideStandardButtons(for: window)
+        
+        // 延迟修复：确保在各种状态切换后按钮依然隐藏
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            window.isMovableByWindowBackground = false
+            self.hideStandardButtons(for: window)
+        }
+        
+        // 移除标题栏的高度占用
+        if let contentView = window.contentView {
+            contentView.wantsLayer = true
+        }
+        
+        self.windowController = EdgeSnapWindowController(window: window)
     }
     
     // MARK: - Window Delegate (Close Behavior)
@@ -139,20 +168,32 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     
     func windowDidBecomeKey(_ notification: Notification) {
         if let window = notification.object as? NSWindow {
+            // 如果是在运行时意外产生的新窗口，补救初始化
+            if mainWindow == nil && isMainWindow(window) {
+                setupMainWindow(window)
+            }
+            hideStandardButtons(for: window)
+        }
+    }
+
+    func windowDidDeminiaturize(_ notification: Notification) {
+        if let window = notification.object as? NSWindow {
             hideStandardButtons(for: window)
         }
     }
 
     private func hideStandardButtons(for window: NSWindow) {
-        // Skip for Settings window (identified by class or other means if needed, 
-        // usually settings window is not mainWindow stored here unless set).
-        // But here we might receive notifications for any window if we set delegate too broadly.
-        // Checking against self.mainWindow is safer.
-        guard window == self.mainWindow else { return }
+        guard isMainWindow(window) else { return }
         
-        window.standardWindowButton(.closeButton)?.isHidden = true
-        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        window.standardWindowButton(.zoomButton)?.isHidden = true
+        let hideAction = {
+            window.standardWindowButton(.closeButton)?.isHidden = true
+            window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+            window.standardWindowButton(.zoomButton)?.isHidden = true
+        }
+        
+        hideAction()
+        // 关键：延迟 0.1s 再次强行隐藏，避开 OS 的自动重绘
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: hideAction)
     }
     
     func toggleAppVisibility() {
@@ -162,6 +203,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         } else {
             NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
+            hideStandardButtons(for: window)
         }
     }
 }

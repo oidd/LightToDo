@@ -41,6 +41,7 @@ struct EditorView: View {
                 .onAppear {
                     loadSelectedNote()
                 }
+                .disableWindowDrag() // 修复触控板轻点不灵敏问题：明确告诉系统此区域不可拖拽窗口
             } else {
                 // 无选中文档时的占位视图 - 仅显示新建按钮
                 VStack {
