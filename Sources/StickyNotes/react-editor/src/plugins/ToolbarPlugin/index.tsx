@@ -116,32 +116,32 @@ const ELEMENT_FORMAT_OPTIONS: {
   center: {
     icon: 'center-align',
     iconRTL: 'center-align',
-    name: 'Center Align',
+    name: '居中对齐',
   },
   end: {
     icon: 'right-align',
     iconRTL: 'left-align',
-    name: 'End Align',
+    name: '右对齐',
   },
   justify: {
     icon: 'justify-align',
     iconRTL: 'justify-align',
-    name: 'Justify Align',
+    name: '两端对齐',
   },
   left: {
     icon: 'left-align',
     iconRTL: 'left-align',
-    name: 'Left Align',
+    name: '左对齐',
   },
   right: {
     icon: 'right-align',
     iconRTL: 'right-align',
-    name: 'Right Align',
+    name: '右对齐',
   },
   start: {
     icon: 'left-align',
     iconRTL: 'right-align',
-    name: 'Start Align',
+    name: '左对齐',
   },
 };
 
@@ -174,7 +174,7 @@ function BlockFormatDropDown({
         onClick={() => formatParagraph(editor)}>
         <div className="icon-text-container">
           <i className="icon paragraph" />
-          <span className="text">Normal</span>
+          <span className="text">正文</span>
         </div>
         <span className="shortcut">{SHORTCUTS.NORMAL}</span>
       </DropDownItem>
@@ -183,7 +183,7 @@ function BlockFormatDropDown({
         onClick={() => formatHeading(editor, blockType, 'h1')}>
         <div className="icon-text-container">
           <i className="icon h1" />
-          <span className="text">Heading 1</span>
+          <span className="text">标题 1</span>
         </div>
         <span className="shortcut">{SHORTCUTS.HEADING1}</span>
       </DropDownItem>
@@ -192,7 +192,7 @@ function BlockFormatDropDown({
         onClick={() => formatHeading(editor, blockType, 'h2')}>
         <div className="icon-text-container">
           <i className="icon h2" />
-          <span className="text">Heading 2</span>
+          <span className="text">标题 2</span>
         </div>
         <span className="shortcut">{SHORTCUTS.HEADING2}</span>
       </DropDownItem>
@@ -201,7 +201,7 @@ function BlockFormatDropDown({
         onClick={() => formatCheckList(editor, blockType)}>
         <div className="icon-text-container">
           <i className="icon check-list" />
-          <span className="text">Check List</span>
+          <span className="text">待办列表</span>
         </div>
         <span className="shortcut">{SHORTCUTS.CHECK_LIST}</span>
       </DropDownItem>
@@ -210,7 +210,7 @@ function BlockFormatDropDown({
         onClick={() => formatBulletList(editor, blockType)}>
         <div className="icon-text-container">
           <i className="icon bullet-list" />
-          <span className="text">Bullet List</span>
+          <span className="text">无序列表</span>
         </div>
         <span className="shortcut">{SHORTCUTS.BULLET_LIST}</span>
       </DropDownItem>
@@ -219,7 +219,7 @@ function BlockFormatDropDown({
         onClick={() => formatNumberedList(editor, blockType)}>
         <div className="icon-text-container">
           <i className="icon numbered-list" />
-          <span className="text">Numbered List</span>
+          <span className="text">有序列表</span>
         </div>
         <span className="shortcut">{SHORTCUTS.NUMBERED_LIST}</span>
       </DropDownItem>
@@ -228,7 +228,7 @@ function BlockFormatDropDown({
         onClick={() => formatQuote(editor, blockType)}>
         <div className="icon-text-container">
           <i className="icon quote" />
-          <span className="text">Quote</span>
+          <span className="text">引用</span>
         </div>
         <span className="shortcut">{SHORTCUTS.QUOTE}</span>
       </DropDownItem>
@@ -237,11 +237,11 @@ function BlockFormatDropDown({
         onClick={() => formatCode(editor, blockType)}>
         <div className="icon-text-container">
           <i className="icon code" />
-          <span className="text">Code Block</span>
+          <span className="text">代码块</span>
         </div>
         <span className="shortcut">{SHORTCUTS.CODE_BLOCK}</span>
       </DropDownItem>
-    </DropDown>
+    </DropDown >
   );
 }
 
@@ -332,7 +332,7 @@ function ElementFormatDropdown({
         className="item wide">
         <div className="icon-text-container">
           <i className="icon left-align" />
-          <span className="text">Left Align</span>
+          <span className="text">左对齐</span>
         </div>
         <span className="shortcut">{SHORTCUTS.LEFT_ALIGN}</span>
       </DropDownItem>
@@ -343,7 +343,7 @@ function ElementFormatDropdown({
         className="item wide">
         <div className="icon-text-container">
           <i className="icon center-align" />
-          <span className="text">Center Align</span>
+          <span className="text">居中对齐</span>
         </div>
         <span className="shortcut">{SHORTCUTS.CENTER_ALIGN}</span>
       </DropDownItem>
@@ -354,7 +354,7 @@ function ElementFormatDropdown({
         className="item wide">
         <div className="icon-text-container">
           <i className="icon right-align" />
-          <span className="text">Right Align</span>
+          <span className="text">右对齐</span>
         </div>
         <span className="shortcut">{SHORTCUTS.RIGHT_ALIGN}</span>
       </DropDownItem>
@@ -365,7 +365,7 @@ function ElementFormatDropdown({
         className="item wide">
         <div className="icon-text-container">
           <i className="icon justify-align" />
-          <span className="text">Justify Align</span>
+          <span className="text">两端对齐</span>
         </div>
         <span className="shortcut">{SHORTCUTS.JUSTIFY_ALIGN}</span>
       </DropDownItem>
@@ -377,7 +377,7 @@ function ElementFormatDropdown({
         className="item wide">
         <div className="icon-text-container">
           <i className={'icon ' + (isRTL ? 'indent' : 'outdent')} />
-          <span className="text">Outdent</span>
+          <span className="text">减少缩进</span>
         </div>
         <span className="shortcut">{SHORTCUTS.OUTDENT}</span>
       </DropDownItem>
@@ -388,7 +388,7 @@ function ElementFormatDropdown({
         className="item wide">
         <div className="icon-text-container">
           <i className={'icon ' + (isRTL ? 'outdent' : 'indent')} />
-          <span className="text">Indent</span>
+          <span className="text">增加缩进</span>
         </div>
         <span className="shortcut">{SHORTCUTS.INDENT}</span>
       </DropDownItem>
@@ -587,7 +587,7 @@ export default function ToolbarPlugin({
         onClick={() => {
           activeEditor.dispatchCommand(UNDO_COMMAND, undefined);
         }}
-        title={IS_APPLE ? 'Undo (⌘Z)' : 'Undo (Ctrl+Z)'}
+        title={IS_APPLE ? '撤回 (⌘Z)' : '撤销 (Ctrl+Z)'}
         type="button"
         className="toolbar-item spaced"
         aria-label="Undo">
@@ -598,7 +598,7 @@ export default function ToolbarPlugin({
         onClick={() => {
           activeEditor.dispatchCommand(REDO_COMMAND, undefined);
         }}
-        title={IS_APPLE ? 'Redo (⌘Y)' : 'Redo (Ctrl+Y)'}
+        title={IS_APPLE ? `重做 (${SHORTCUTS.REDO})` : `重做 (${SHORTCUTS.REDO})`}
         type="button"
         className="toolbar-item"
         aria-label="Redo">
@@ -630,7 +630,7 @@ export default function ToolbarPlugin({
           activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold');
         }}
         className={'toolbar-item spaced ' + (toolbarState.isBold ? 'active' : '')}
-        title={IS_APPLE ? 'Bold (⌘B)' : 'Bold (Ctrl+B)'}
+        title={IS_APPLE ? '加粗 (⌘B)' : '加粗 (Ctrl+B)'}
         type="button"
         aria-label={`Format text as bold. Shortcut: ${SHORTCUTS.BOLD}`}>
         <i className="format bold" />
@@ -641,7 +641,7 @@ export default function ToolbarPlugin({
           activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic');
         }}
         className={'toolbar-item spaced ' + (toolbarState.isItalic ? 'active' : '')}
-        title={IS_APPLE ? 'Italic (⌘I)' : 'Italic (Ctrl+I)'}
+        title={IS_APPLE ? '斜体 (⌘I)' : '斜体 (Ctrl+I)'}
         type="button"
         aria-label={`Format text as italics. Shortcut: ${SHORTCUTS.ITALIC}`}>
         <i className="format italic" />
@@ -652,7 +652,7 @@ export default function ToolbarPlugin({
           activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline');
         }}
         className={'toolbar-item spaced ' + (toolbarState.isUnderline ? 'active' : '')}
-        title={IS_APPLE ? 'Underline (⌘U)' : 'Underline (Ctrl+U)'}
+        title={IS_APPLE ? '下划线 (⌘U)' : '下划线 (Ctrl+U)'}
         type="button"
         aria-label={`Format text to underlined. Shortcut: ${SHORTCUTS.UNDERLINE}`}>
         <i className="format underline" />
@@ -663,7 +663,7 @@ export default function ToolbarPlugin({
           activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'code');
         }}
         className={'toolbar-item spaced ' + (toolbarState.isCode ? 'active' : '')}
-        title="Insert code block"
+        title="插入代码块"
         type="button"
         aria-label="Insert code block">
         <i className="format code" />
@@ -672,8 +672,8 @@ export default function ToolbarPlugin({
         disabled={!isEditable}
         onClick={insertLink}
         className={'toolbar-item spaced ' + (toolbarState.isLink ? 'active' : '')}
-        aria-label="Insert link"
-        title="Insert link"
+        aria-label="插入链接"
+        title="插入链接"
         type="button">
         <i className="format link" />
       </button>
@@ -684,7 +684,7 @@ export default function ToolbarPlugin({
         buttonIconClassName="icon font-color"
         color={toolbarState.fontColor}
         onChange={(value) => applyStyleText({ color: value }, true)}
-        title="Text color"
+        title="文字颜色"
       />
       <button
         disabled={!isEditable}
@@ -692,7 +692,7 @@ export default function ToolbarPlugin({
           activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, 'highlight');
         }}
         className={'toolbar-item spaced ' + (toolbarState.isHighlight ? 'active' : '')}
-        title="Highlight"
+        title="高亮"
         type="button"
         aria-label="Highlight text">
         <i className="format highlight" />

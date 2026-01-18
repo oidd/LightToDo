@@ -25,6 +25,8 @@ import DragDropPastePlugin from './plugins/DragDropPastePlugin';
 import PlaygroundNodes from './nodes/PlaygroundNodes';
 import PlaygroundEditorTheme from './themes/PlaygroundEditorTheme';
 import CaretFixPlugin from './plugins/CaretFixPlugin';
+import NewNoteButton from './ui/NewNoteButton';
+import ShortcutsPlugin from './plugins/ShortcutsPlugin';
 
 import { useState, useEffect } from 'react';
 
@@ -68,17 +70,20 @@ function Editor() {
 
     return (
         <div className="editor-shell">
-            <ToolbarPlugin
-                editor={editor}
-                activeEditor={activeEditor}
-                setActiveEditor={setActiveEditor}
-                setIsLinkEditMode={setIsLinkEditMode}
-            />
+            <div className="toolbar-wrapper">
+                <NewNoteButton />
+                <ToolbarPlugin
+                    editor={editor}
+                    activeEditor={activeEditor}
+                    setActiveEditor={setActiveEditor}
+                    setIsLinkEditMode={setIsLinkEditMode}
+                />
+            </div>
             <div className="editor-container">
                 <div className="editor-scroller">
                     <RichTextPlugin
                         contentEditable={<ContentEditable className="editor-input" />}
-                        placeholder={<div className="editor-placeholder">Start typing...</div>}
+                        placeholder={<div className="editor-placeholder">输入内容...</div>}
                         ErrorBoundary={LexicalErrorBoundary}
                     />
                     <HistoryPlugin />
@@ -93,6 +98,10 @@ function Editor() {
                     <TableHoverActionsPlugin />
                     <DraggableBlockPlugin />
                     <CaretFixPlugin />
+                    <ShortcutsPlugin
+                        editor={editor}
+                        setIsLinkEditMode={setIsLinkEditMode}
+                    />
                     <OnChangePlugin onChange={onChange} />
 
                     <OnChangePlugin onChange={onChange} />
