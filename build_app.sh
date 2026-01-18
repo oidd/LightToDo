@@ -17,6 +17,11 @@ BUNDLE_NAME="${APP_NAME}_${APP_NAME}.bundle"
 RESOURCES_BUNDLE="$BUILD_DIR/$BUNDLE_NAME"
 
 echo "🔨 正在构建 Release 版本..."
+cd "$PROJECT_DIR/Sources/StickyNotes/react-editor"
+npm install && npm run build
+# 关键一步：同步构建产物到资源目录
+cp dist/index.html "$PROJECT_DIR/Sources/StickyNotes/Resources/lexical-editor.html"
+
 cd "$PROJECT_DIR"
 swift build -c release
 
@@ -44,6 +49,26 @@ if [ -d "$RESOURCES_BUNDLE" ]; then
 else
     echo "⚠️ 警告: 未发现资源束 $BUNDLE_NAME，请检查 Package.swift 配置"
 fi
+
+# 生成应用图标 (.icns)
+echo "🎨 正在生成应用图标..."
+ICONSET_DIR="$PROJECT_DIR/AppIcon.iconset"
+mkdir -p "$ICONSET_DIR"
+SRC_ICON="$PROJECT_DIR/Assets.xcassets/AppIcon.appiconset/icon_light.png"
+
+sips -z 16 16     "$SRC_ICON" --out "$ICONSET_DIR/icon_16x16.png" > /dev/null 2>&1
+sips -z 32 32     "$SRC_ICON" --out "$ICONSET_DIR/icon_16x16@2x.png" > /dev/null 2>&1
+sips -z 32 32     "$SRC_ICON" --out "$ICONSET_DIR/icon_32x32.png" > /dev/null 2>&1
+sips -z 64 64     "$SRC_ICON" --out "$ICONSET_DIR/icon_32x32@2x.png" > /dev/null 2>&1
+sips -z 128 128   "$SRC_ICON" --out "$ICONSET_DIR/icon_128x128.png" > /dev/null 2>&1
+sips -z 256 256   "$SRC_ICON" --out "$ICONSET_DIR/icon_128x128@2x.png" > /dev/null 2>&1
+sips -z 256 256   "$SRC_ICON" --out "$ICONSET_DIR/icon_256x256.png" > /dev/null 2>&1
+sips -z 512 512   "$SRC_ICON" --out "$ICONSET_DIR/icon_256x256@2x.png" > /dev/null 2>&1
+sips -z 512 512   "$SRC_ICON" --out "$ICONSET_DIR/icon_512x512.png" > /dev/null 2>&1
+sips -z 1024 1024 "$SRC_ICON" --out "$ICONSET_DIR/icon_512x512@2x.png" > /dev/null 2>&1
+
+iconutil -c icns "$ICONSET_DIR" -o "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+rm -rf "$ICONSET_DIR"
 
 # 创建 Info.plist
 cat > "$APP_BUNDLE/Contents/Info.plist" << 'EOF'

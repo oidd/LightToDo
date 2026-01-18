@@ -24,6 +24,8 @@ import DraggableBlockPlugin from './plugins/DraggableBlockPlugin';
 import DragDropPastePlugin from './plugins/DragDropPastePlugin';
 import PlaygroundNodes from './nodes/PlaygroundNodes';
 import PlaygroundEditorTheme from './themes/PlaygroundEditorTheme';
+import CaretFixPlugin from './plugins/CaretFixPlugin';
+
 import { useState, useEffect } from 'react';
 
 function Editor() {
@@ -90,6 +92,9 @@ function Editor() {
                     <TableCellResizerPlugin />
                     <TableHoverActionsPlugin />
                     <DraggableBlockPlugin />
+                    <CaretFixPlugin />
+                    <OnChangePlugin onChange={onChange} />
+
                     <OnChangePlugin onChange={onChange} />
                 </div>
             </div>
