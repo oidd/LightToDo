@@ -10,20 +10,23 @@ struct MainView: View {
     
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // 1. 底层：编辑区 (全屏铺满，zIndex最低)
+            
+            // 1. 底层：编辑区 (全屏但让出左侧)
             EditorView(editorMode: $editorMode, isSidebarCollapsed: isSidebarCollapsed)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .zIndex(0)
-            
-            // 2. 中层：侧边栏 (zIndex=1，在编辑器上方，阴影可见)
-            SidebarView(isCollapsed: $isSidebarCollapsed)
+                // 给编辑器添加不透明背景，防止它也变透明
+                .background(Color(nsColor: .windowBackgroundColor)) 
                 .zIndex(1)
+            
+            // 2. 中层：侧边栏 (zIndex=2，在编辑器上方)
+            SidebarView(isCollapsed: $isSidebarCollapsed)
+                .zIndex(2)
             
             // 3. 顶层：窗口控制按钮 (绝对锁定位置)
             WindowControlButtons(isActive: isWindowActive)
                 .padding(.leading, 26)
                 .padding(.top, 22)
-                .zIndex(2)
+                .zIndex(3)
             
             // 4. 顶层：功能按钮 (根据折叠状态调整位置)
             HStack(spacing: 10) {
@@ -124,9 +127,9 @@ struct MainView: View {
             .padding(.leading, isSidebarCollapsed ? 99 : 279)
             .padding(.top, 14)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isSidebarCollapsed)
-            .zIndex(3)
+            .zIndex(4)
             
-            // 5. 顶部可拖拽手柄区域（仅在右侧区域生效，避免干扰侧边栏排序）
+            // 5. 顶部可拖拽手柄区域
             Color.clear
                 .frame(height: 44)
                 .contentShape(Rectangle())
@@ -135,7 +138,6 @@ struct MainView: View {
                 .zIndex(0)
         }
         .frame(minWidth: 700, minHeight: 450)
-        .background(Color(nsColor: NSColor.windowBackgroundColor))
         .ignoresSafeArea()
     }
     

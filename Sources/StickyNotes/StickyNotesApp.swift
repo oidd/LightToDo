@@ -31,8 +31,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 // 强制禁用背景拖拽，多次尝试确保生效
                 window.isMovableByWindowBackground = false
                 
-                // 设置窗口背景色与应用背景一致
-                window.backgroundColor = NSColor.windowBackgroundColor
+                // 设置窗口背景为透明，允许 VisualEffectView 穿透显示壁纸
+                // 这是实现"液态玻璃"红底折射的关键：必须去掉 NSWindow 默认的不透明底色
+                window.isOpaque = false
+                window.backgroundColor = .clear
+                // window.hasShadow = false // 可选：如果不需要系统阴影
                 
                 // 补救措施：再设一次
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {

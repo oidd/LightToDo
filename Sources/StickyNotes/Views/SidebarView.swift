@@ -298,11 +298,60 @@ struct SidebarView: View {
     }
     
     private var sidebarBackground: some View {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(isActive 
-                ? (colorScheme == .dark ? Color(white: 0.2) : Color(red: 249/255, green: 249/255, blue: 249/255))
-                : (colorScheme == .dark ? Color(white: 0.18) : Color(red: 247/255, green: 247/255, blue: 247/255)))
-            .opacity(isCollapsed ? 0 : 1)
+        ZStack {
+            // LAYER 1: 高折射背景 (The Refractive Base)
+            // 基础物理层：捕捉壁纸颜色
+            VisualEffectBackground(material: .sidebar, blendingMode: .behindWindow)
+            
+            // 叠加层：白色渐变 + 叠加模式，制造"凝胶感" (Gel-like thickness)
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.15),
+                    Color.white.opacity(0.05)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .blendMode(.overlay)
+            
+            // 基础底色：适度降低，让上面的凝胶层和下面的折射层发挥作用
+            (colorScheme == .dark ? Color.black : Color.white)
+                .opacity(0.4)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        
+        // LAYER 3: 表面光泽 (Surface & Noise) - 模拟内发光
+        // 通过模糊的白色描边模拟内部的光线散射
+        // 调整：大幅降低暗色模式下的亮度 (0.5 -> 0.1)，避免刺眼
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.white.opacity(colorScheme == .dark ? 0.1 : 0.3), lineWidth: 2)
+                .blur(radius: 3)
+                .mask(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                )
+                .padding(1) //稍微内缩，确保只在边缘发光
+        )
+        
+        // LAYER 2: 边缘流动高光 (The Fluid Rims)
+        // 关键：从左上到右下的渐变，模拟物理光源 (暗色模式下大幅降低亮度)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(colorScheme == .dark ? 0.2 : 0.85), location: 0),   // 高亮受光面
+                            .init(color: .white.opacity(colorScheme == .dark ? 0.1 : 0.3), location: 0.3),  // 过渡区
+                            .init(color: .white.opacity(0.05), location: 1)    // 阴影面
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1 // 1px 精致切割感
+                )
+        )        // 增加柔和投影，增强悬浮感
+        .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 4)
+        .opacity(isCollapsed ? 0 : 1)
     }
     
     private func toggleSidebar() {
