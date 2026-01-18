@@ -20,7 +20,8 @@
 .draggable-block-menu .icon {
     width: 16px;
     height: 16px;
-    opacity: 0.2;
+    opacity: 0.3;
+    /* Slightly increased from 0.2 for better visibility generally */
     background-image: url(../../images/icons/draggable-block-menu.svg);
 }
 
@@ -32,6 +33,8 @@
 
 .draggable-block-menu .icon:hover {
     background-color: #efefef;
+    opacity: 0.8;
+    /* More visible on hover */
 }
 
 .draggable-block-target-line {
@@ -43,4 +46,20 @@
     top: 0;
     opacity: 0;
     will-change: transform;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .draggable-block-menu .icon {
+        filter: invert(1) !important;
+        /* Invert black icon to white */
+        opacity: 0.6 !important;
+        /* Higher base opacity for dark mode contrast */
+    }
+
+    .draggable-block-menu .icon:hover {
+        background-color: #3a3a3c !important;
+        /* Dark grey hover background */
+        opacity: 1 !important;
+    }
 }

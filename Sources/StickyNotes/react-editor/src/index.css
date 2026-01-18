@@ -2577,3 +2577,41 @@ select:focus,
   outline: none !important;
   box-shadow: none !important
 }
+/* Dark Mode Overrides */
+@media (prefers-color-scheme: dark) {
+  /* Toolbar Button Hover: Dark Blue */
+  .toolbar-item:hover:not([disabled]) {
+    background-color: #154c79 !important; /* Deep Blue */
+  }
+  
+  /* Dropdown Menus: Grey Background */
+  .dropdown,
+  .typeahead-popover {
+    background-color: #2c2c2e !important; /* Dark Grey similar to macOS */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5) !important;
+    border: 1px solid #3a3a3c !important;
+  }
+  
+  /* Dropdown Items */
+  .dropdown .item,
+  .typeahead-popover li {
+    background-color: transparent !important;
+    color: #dfdfdf !important;
+  }
+  
+  /* Dropdown Item Hover */
+  .dropdown .item:hover,
+  .typeahead-popover li:hover {
+    background-color: #3a3a3c !important; /* Lighter Grey */
+  }
+  
+  /* Dropdown Divide */
+  .dropdown .divider {
+    background-color: #3a3a3c !important;
+  }
+  
+  /* Invert icons in dropdowns if they are black images, but user said icons are white. 
+     If icons are white, no filter needed. 
+     Let's assume they are handled correctly elsewhere since user didn't complain about dropdown icon color, 
+     just that menu background was white. */
+}

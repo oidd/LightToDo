@@ -131,6 +131,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         HotKeyManager.shared.registerHotKey(keyCode: effectiveKeyCode, modifiers: effectiveMods)
     }
     
+    func windowDidResize(_ notification: Notification) {
+        if let window = notification.object as? NSWindow {
+            hideStandardButtons(for: window)
+        }
+    }
+    
+    func windowDidBecomeKey(_ notification: Notification) {
+        if let window = notification.object as? NSWindow {
+            hideStandardButtons(for: window)
+        }
+    }
+
+    private func hideStandardButtons(for window: NSWindow) {
+        // Skip for Settings window (identified by class or other means if needed, 
+        // usually settings window is not mainWindow stored here unless set).
+        // But here we might receive notifications for any window if we set delegate too broadly.
+        // Checking against self.mainWindow is safer.
+        guard window == self.mainWindow else { return }
+        
+        window.standardWindowButton(.closeButton)?.isHidden = true
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        window.standardWindowButton(.zoomButton)?.isHidden = true
+    }
+    
     func toggleAppVisibility() {
         guard let window = mainWindow else { return }
         if NSApp.isActive && !window.isMiniaturized {
