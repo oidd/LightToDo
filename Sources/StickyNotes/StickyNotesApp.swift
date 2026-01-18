@@ -5,25 +5,48 @@ struct StickyNotesApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var notesManager = NotesManager()
     @StateObject private var windowManager = WindowManager()
+    @AppStorage("appTheme") private var appTheme: String = "system"
     
     var body: some Scene {
         WindowGroup {
             MainView()
                 .environmentObject(notesManager)
                 .environmentObject(windowManager)
+                .preferredColorScheme(selectedScheme)
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 750, height: 500)
+        
+        // Settings Window
+        Settings {
+            SettingsView()
+        }
+    }
+    
+    var selectedScheme: ColorScheme? {
+        switch appTheme {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var windowController: EdgeSnapWindowController?
+    var mainWindow: NSWindow?
+    
+    // Global shortcut monitoring
+    var globalMonitor: Any?
+    var localMonitor: Any?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 配置窗口
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             if let window = NSApplication.shared.windows.first {
+                self.mainWindow = window
+                window.delegate = self // Set delegate to intercrpt close
+                
                 window.titlebarAppearsTransparent = true
                 window.titleVisibility = .hidden
                 window.styleMask.insert(.fullSizeContentView)
@@ -55,9 +78,66 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.windowController = EdgeSnapWindowController(window: window)
             }
         }
+        
+        setupHotKey()
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        return true
+        return false // Stay running if minimized
+    }
+    
+    // MARK: - Window Delegate (Close Behavior)
+    
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        let action = UserDefaults.standard.string(forKey: "closeBehavior") ?? "minimize"
+        if action == "quit" {
+            NSApplication.shared.terminate(nil)
+            return true
+        } else {
+            sender.miniaturize(nil)
+            return false
+        }
+    }
+    
+    // MARK: - Shortcuts
+    
+    func setupHotKey() {
+        // Set action
+        HotKeyManager.shared.onHotKeyTriggered = { [weak self] in
+            DispatchQueue.main.async {
+                self?.toggleAppVisibility()
+            }
+        }
+        
+        // Register initial
+        updateHotKeyRegistration()
+        
+        // Listen for changes
+        NotificationCenter.default.addObserver(self, selector: #selector(settingsChanged), name: UserDefaults.didChangeNotification, object: nil)
+    }
+    
+    @objc func settingsChanged() {
+        updateHotKeyRegistration()
+    }
+    
+    func updateHotKeyRegistration() {
+        let keyCode = UserDefaults.standard.integer(forKey: "globalShortcutKeyCode")
+        let modifiers = UserDefaults.standard.integer(forKey: "globalShortcutModifiers")
+        
+        // Default to Option+S (Keycode 1, Mods Option) if 0
+        let effectiveKeyCode = keyCode == 0 ? 1 : keyCode
+        let effectiveMods = modifiers == 0 ? 524288 : modifiers
+        
+        HotKeyManager.shared.registerHotKey(keyCode: effectiveKeyCode, modifiers: effectiveMods)
+    }
+    
+    func toggleAppVisibility() {
+        guard let window = mainWindow else { return }
+        if NSApp.isActive && !window.isMiniaturized {
+            NSApp.hide(nil)
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+        }
     }
 }

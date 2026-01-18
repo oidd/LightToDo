@@ -11,6 +11,11 @@ class NotesManager: ObservableObject {
     
     init() {
         loadData()
+        
+        // 监听存储路径变更
+        NotificationCenter.default.addObserver(forName: Notification.Name("StoragePathChanged"), object: nil, queue: .main) { [weak self] _ in
+            self?.loadData()
+        }
     }
     
     // MARK: - Data Loading
