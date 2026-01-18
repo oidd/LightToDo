@@ -1966,44 +1966,45 @@ button.item.dropdown-item-active i {
   outline: 2px solid rgb(60, 132, 244);
   outline-offset: 1px;
 }
+
 /* =========================================
    VARIABLES & THEME CONFIGURATION
    ========================================= */
 :root {
-    --app-bg: #ffffff;
-    --module-bg: #ffffff;
-    --text-color: #1a1a1a;
-    --border-color: #f0f0f0;
-    --active-bg: #f5f5f5;
-    --shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    --gap-size: 12px;
+  --app-bg: #ffffff;
+  --module-bg: #ffffff;
+  --text-color: #1a1a1a;
+  --border-color: #f0f0f0;
+  --active-bg: #f5f5f5;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --gap-size: 12px;
 }
 
 @media (prefers-color-scheme: dark) {
-    :root {
-        --app-bg: #1c1c1e;
-        --module-bg: #2c2c2e;
-        --text-color: #ffffff;
-        --border-color: rgba(255, 255, 255, 0.1);
-        --active-bg: #404040;
-        --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    }
+  :root {
+    --app-bg: #1c1c1e;
+    --module-bg: #2c2c2e;
+    --text-color: #ffffff;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --active-bg: #404040;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
 
-    .icon,
-    button.toolbar-item i,
-    .editor-dev-button:after,
-    .test-recorder-button:after,
-    .new-note-btn svg {
-        filter: invert(1);
-    }
+  .icon,
+  button.toolbar-item i,
+  .editor-dev-button:after,
+  .test-recorder-button:after,
+  .new-note-btn svg {
+    filter: invert(1);
+  }
 
-    button.toolbar-item.active i {
-        filter: invert(1);
-    }
+  button.toolbar-item.active i {
+    filter: invert(1);
+  }
 
-    .new-note-btn {
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    }
+  .new-note-btn {
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
 }
 
 /* =========================================
@@ -2011,18 +2012,18 @@ button.item.dropdown-item-active i {
    ========================================= */
 body.inactive .toolbar,
 body.inactive .new-note-btn {
-    box-shadow: none !important;
-    background-color: #f7f7f7 !important;
-    border: none !important;
+  box-shadow: none !important;
+  background-color: #f7f7f7 !important;
+  border: none !important;
 }
 
 @media (prefers-color-scheme: dark) {
 
-    body.inactive .toolbar,
-    body.inactive .new-note-btn {
-        background-color: #252527 !important;
-        border: none !important;
-    }
+  body.inactive .toolbar,
+  body.inactive .new-note-btn {
+    background-color: #252527 !important;
+    border: none !important;
+  }
 }
 
 /* =========================================
@@ -2030,190 +2031,201 @@ body.inactive .new-note-btn {
    ========================================= */
 html,
 body {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    overflow: hidden !important;
-    background-color: var(--app-bg) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  background-color: var(--app-bg) !important;
 }
 
 #root {
-    margin: 0 !important;
-    /* BASE 20px PADDING - CORE ANCHOR */
-    padding: 4px 20px 24px 20px !important;
-    width: 100% !important;
-    height: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    box-sizing: border-box !important;
+  margin: 0 !important;
+  /* BASE 20px PADDING - CORE ANCHOR */
+  padding: 4px 20px 24px 20px !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
 }
 
 .editor-shell {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    height: 100% !important; /* Force height */
-    display: flex !important;
-    flex-direction: column !important;
-    flex: 1 !important;
-    align-items: flex-start !important;
-    box-sizing: border-box !important;
-    min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  /* Force height */
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  align-items: stretch !important;
+  /* Stretch children to fill width */
+  box-sizing: border-box !important;
+  min-height: 0 !important;
 }
 
 /* =========================================
    TOOLBAR WRAPPER - PHYSICS ALIGNMENT
    ========================================= */
 .toolbar-wrapper {
-    display: flex !important;
-    align-items: center !important;
-    gap: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
 
-    /* FIX: LOCALIZED WIDTH ONLY - ENSURES NO TEXT SHIFT */
-    width: fit-content !important;
+  /* FIX: LOCALIZED WIDTH ONLY - ENSURES NO TEXT SHIFT */
+  width: fit-content !important;
 
-    margin-top: 0 !important;
-    margin-bottom: 8px !important;
-    padding: 10px !important;
+  margin-top: 0 !important;
+  margin-bottom: 8px !important;
+  padding: 10px !important;
 
-    /* ALIGNMENT: Landing at 20px exactly on the red line */
-    margin-left: -10px !important;
-    margin-right: auto !important;
+  /* ALIGNMENT: Landing at 20px exactly on the red line */
+  margin-left: -10px !important;
+  margin-right: auto !important;
 
-    box-sizing: border-box !important;
+  box-sizing: border-box !important;
+}
+
+/* Note Mode Toolbar Adjustment */
+.note-mode-active .toolbar-wrapper {
+  margin-top: 8px !important;
 }
 
 .new-note-btn {
-    width: 44px !important;
-    height: 44px !important;
-    border-radius: 50% !important;
-    background-color: var(--module-bg) !important;
-    border: none !important;
-    box-shadow: var(--shadow) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    cursor: pointer !important;
-    flex-shrink: 0 !important;
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  background-color: var(--module-bg) !important;
+  border: none !important;
+  box-shadow: var(--shadow) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
 }
 
 .new-note-btn:hover {
-    background-color: var(--active-bg) !important;
-    transform: scale(1.05) !important;
+  background-color: var(--active-bg) !important;
+  transform: scale(1.05) !important;
 }
 
 .new-note-btn:active {
-    transform: scale(0.95) !important;
+  transform: scale(0.95) !important;
 }
 
 /* =========================================
    TOOLBAR - FIXED SIZE (NON-DEFORMABLE)
    ========================================= */
 .toolbar {
-    background-color: var(--module-bg) !important;
-    border: none !important;
-    border-radius: 999px !important;
-    margin: 0 !important;
-    box-shadow: var(--shadow) !important;
-    z-index: 100 !important;
+  background-color: var(--module-bg) !important;
+  border: none !important;
+  border-radius: 999px !important;
+  margin: 0 !important;
+  box-shadow: var(--shadow) !important;
+  z-index: 100 !important;
 
-    /* PREVENTS DEFORMATION */
-    min-width: max-content !important;
-    flex-shrink: 0 !important;
+  /* PREVENTS DEFORMATION */
+  min-width: max-content !important;
+  flex-shrink: 0 !important;
 
-    display: flex !important;
-    padding: 4px 16px !important;
-    height: auto !important;
-    white-space: nowrap !important;
-    overflow: visible !important;
+  display: flex !important;
+  padding: 4px 16px !important;
+  height: auto !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
 }
 
 @media (prefers-color-scheme: dark) {
-    .toolbar:not(.inactive *) {
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    }
+  .toolbar:not(.inactive *) {
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  }
 }
 
 /* =========================================
    EDITOR CONTENT - PRECISION 44px PADDING
    ========================================= */
 .editor-shell .editor-container {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    display: flex !important;
-    flex-direction: column !important;
-    flex: 1 !important;
-    width: 100% !important;
-    height: 100% !important; /* Force height */
-    margin-top: 16px !important;
-    padding: 0 !important;
-    box-sizing: border-box !important;
-    overflow: hidden !important;
-    min-height: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  width: 100% !important;
+  height: 100% !important;
+  /* Force height */
+  margin-top: 16px !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  min-height: 0 !important;
 }
 
 .editor-scroller {
-    background-color: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    margin: 0 !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  margin: 0 !important;
 
-    /* Zero padding for strict alignment - relies on #root padding */
-    padding: 0 !important;
+  /* Zero padding for strict alignment - relies on #root padding */
+  padding: 0 !important;
 
-    flex: 1 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    height: 100% !important; /* Force height */
-    box-sizing: border-box !important;
-    outline: none !important;
-    
-    /* ENABLE SCROLLING */
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    min-height: 0 !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  height: 100% !important;
+  /* Force height */
+  box-sizing: border-box !important;
+  outline: none !important;
+
+  /* ENABLE SCROLLING */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  min-height: 0 !important;
 }
 
 .editor-input,
 .ContentEditable__root,
 [contenteditable] {
-    padding: 0 !important;
-    margin: 0 !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-    outline: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  outline: none !important;
 }
 
 .editor {
-    flex: 1 !important;
-    outline: none !important;
-    width: 100% !important;
+  flex: 1 !important;
+  outline: none !important;
+  width: 100% !important;
 }
 
 @media (prefers-color-scheme: dark) {
 
-    .ContentEditable__root,
-    .ContentEditable__root *,
-    .ContentEditable__root span[style],
-    [contenteditable] * {
-        color: #ffffff !important;
-        caret-color: #ffffff !important;
-    }
+  .ContentEditable__root,
+  .ContentEditable__root *,
+  .ContentEditable__root span[style],
+  [contenteditable] *,
+  .todo-input,
+  textarea {
+    color: #ffffff !important;
+    caret-color: #ffffff !important;
+  }
 }
 
 /* =========================================
    FEATURE TOGGLES - HIDE UNWANTED BUTTONS
    ========================================= */
 .editor-placeholder {
-    display: none !important;
+  display: none !important;
 }
 
 button.toolbar-item:has(i.undo),
 button.toolbar-item:has(i.redo) {
-    display: none !important;
+  display: none !important;
 }
 
 .font-size-input,
@@ -2221,40 +2233,347 @@ button.font-decrement,
 button.font-increment,
 button.toolbar-item:has(i.minus-icon),
 button.toolbar-item:has(i.plus-icon) {
-    display: none !important;
+  display: none !important;
 }
 
 button.toolbar-item.font-family,
 .font-family {
-    display: none !important;
+  display: none !important;
 }
 
 button.toolbar-item:has(i.code),
 button.toolbar-item:has(i.link) {
-    display: none !important;
+  display: none !important;
 }
 
 .toolbar .divider {
-    display: none !important;
+  display: none !important;
 }
 
 .ContentEditable__root:focus,
 [contenteditable]:focus {
-    outline: none !important;
+  outline: none !important;
 }
 
 /* =========================================
    COLOR PICKER STYLES
    ========================================= */
-.color-picker-wrapper{padding:12px}
-.color-picker-basic-color{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0;padding:0}
-.color-picker-basic-color button{border:1px solid #ccc;border-radius:6px;height:28px;width:28px;cursor:pointer;list-style-type:none;transition:transform .1s ease,box-shadow .1s ease}
-.color-picker-basic-color button:hover{transform:scale(1.1)}
-.color-picker-basic-color button.active{box-shadow:0 0 0 2px #0000004d;transform:scale(1.1)}
-.color-picker-basic-color button.transparent{background-image:linear-gradient(45deg,#ccc 25%,transparent 25%),linear-gradient(-45deg,#ccc 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ccc 75%),linear-gradient(-45deg,transparent 75%,#ccc 75%);background-size:8px 8px;background-position:0 0,0 4px,4px -4px,-4px 0px;background-color:#fff}
+.color-picker-wrapper {
+  padding: 12px
+}
+
+.color-picker-basic-color {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0
+}
+
+.color-picker-basic-color button {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  height: 28px;
+  width: 28px;
+  cursor: pointer;
+  list-style-type: none;
+  transition: transform .1s ease, box-shadow .1s ease
+}
+
+.color-picker-basic-color button:hover {
+  transform: scale(1.1)
+}
+
+.color-picker-basic-color button.active {
+  box-shadow: 0 0 0 2px #0000004d;
+  transform: scale(1.1)
+}
+
+.color-picker-basic-color button.transparent {
+  background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+  background-color: #fff
+}
 
 /* =========================================
-   FOCUS REMOVAL
+   VIEW MODE TOGGLE & TODO VIEW
    ========================================= */
-*:focus{outline:none!important;box-shadow:none!important}
-button:focus,select:focus,.dropdown:focus,.toolbar-item:focus{outline:none!important;box-shadow:none!important}
+.view-mode-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebar-toggle-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  color: #777;
+  transition: all 0.2s;
+}
+
+.sidebar-toggle-btn:hover {
+  background-color: var(--active-bg);
+}
+
+.view-mode-toggle {
+  display: flex;
+  background-color: var(--active-bg);
+  border-radius: 9px;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--border-color);
+}
+
+.view-mode-btn {
+  padding: 2px 14px;
+  height: 24px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: #777;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view-mode-btn.active {
+  background-color: var(--module-bg);
+  color: #007aff;
+  /* Apple Blue for Active */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  .view-mode-btn.active {
+    color: #0a84ff;
+  }
+}
+
+/* Todo View Style (Apple Reminders Look) */
+.todo-view {
+  flex: 1;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0 0 10px 0 !important;
+  /* Top padding 0 */
+  margin-top: -20px !important;
+  /* Pull view up over empty toolbar space */
+  /* Rely on #root padding */
+  /* Match editor padding */
+  animation: fadeInMode 0.3s ease-out;
+  box-sizing: border-box !important;
+  overflow-y: auto !important;
+  min-height: 0;
+}
+
+.todo-input,
+textarea {
+  caret-color: #007aff !important;
+  /* Apple Blue Caret */
+}
+
+@keyframes fadeInMode {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.todo-header {
+  font-size: 28px;
+  font-weight: 700;
+  color: #007aff;
+  margin-top: 0;
+  /* Reset margin, rely on container move */
+  margin-bottom: 20px;
+  /* Add space below header */
+  padding-left: 0;
+  /* Align left with content */
+}
+
+
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.todo-row {
+  display: flex;
+  align-items: center;
+  /* Center Vertically */
+  padding: 8px 0;
+  /* Remove horizontal padding here, let #root handle it if possible, or keep it if it's meant to be indented */
+  border-bottom: 1px solid var(--border-color);
+  width: 100%;
+  gap: 16px;
+  transition: background 0.2s;
+}
+
+.todo-row:hover {
+  background-color: rgba(0, 122, 255, 0.03);
+}
+
+.todo-row:hover .todo-delete-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.todo-delete-btn {
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+  color: #999;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, background-color 0.2s;
+  margin-left: 8px;
+  width: 24px;
+  height: 24px;
+  margin-right: 16px;
+  /* Prevent scrollbar overlap */
+}
+
+.todo-delete-btn:hover {
+  background-color: rgba(255, 59, 48, 0.1);
+  color: #ff3b30;
+}
+
+/* Custom Circular Checkbox (Apple Style) */
+.todo-checkbox-wrapper {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: -4px;
+  /* Move checkbox UP even more */
+}
+
+.todo-checkbox {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid #c7c7cc;
+  border-radius: 4px;
+  /* Square look */
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+  background: transparent;
+}
+
+.todo-checkbox:checked {
+  background-color: #007aff;
+  border-color: #007aff;
+}
+
+.todo-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  /* Move checkmark right */
+  width: 4px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.todo-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 17px;
+  color: var(--text-color);
+  padding: 0;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.2;
+  /* Tighter line height to match checkbox height */
+  /* padding-top removed */
+}
+
+.todo-row.completed .todo-input {
+  color: #8e8e93;
+  text-decoration: line-through;
+}
+
+.todo-empty {
+  padding: 40px;
+  text-align: center;
+  color: #8e8e93;
+  font-size: 15px;
+}
+
+/* Transitions for switching modes */
+.mode-container {
+  flex: 1;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+/* 强制覆盖注入的 display: flex !important */
+.note-mode-active .todo-view {
+  display: none !important;
+}
+
+.todo-mode-active .editor-container {
+  display: none !important;
+}
+
+/* Transitions for switching modes removed duplicate .todo-view rules */
+
+/* 待办模式下仅隐藏编辑工具按钮，保留切换按钮和容器 */
+.todo-mode-active .toolbar>*:not(.view-mode-btn),
+.todo-mode-active .new-note-btn {
+  display: none !important;
+}
+
+.todo-mode-active .toolbar .divider {
+  display: none !important;
+}
+
+.todo-mode-active .toolbar,
+body.inactive .todo-mode-active .toolbar {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* FOCUS REMOVAL */
+*:focus {
+  outline: none !important;
+  box-shadow: none !important
+}
+
+button:focus,
+select:focus,
+.dropdown:focus,
+.toolbar-item:focus {
+  outline: none !important;
+  box-shadow: none !important
+}

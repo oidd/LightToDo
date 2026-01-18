@@ -29,11 +29,15 @@ import NewNoteButton from './ui/NewNoteButton';
 import ShortcutsPlugin from './plugins/ShortcutsPlugin';
 
 import { useState, useEffect } from 'react';
+import TodoView from './ui/TodoView';
+
+export type ViewMode = 'note' | 'todo';
 
 function Editor() {
     const [editor] = useLexicalComposerContext();
     const [activeEditor, setActiveEditor] = useState(editor);
     const [isLinkEditMode, setIsLinkEditMode] = useState(false);
+    const [viewMode, setViewMode] = useState<ViewMode>('note');
 
     // Sync with Swift
     const onChange = (editorState: EditorState) => {
@@ -46,7 +50,7 @@ function Editor() {
     };
 
     useEffect(() => {
-        window.setContent = (html: string) => {
+        (window as any).setContent = (html: string) => {
             editor.update(() => {
                 const parser = new DOMParser();
                 const dom = parser.parseFromString(html, 'text/html');
@@ -57,9 +61,15 @@ function Editor() {
             });
         };
 
-        window.setTitle = () => { };
-        window.setWindowActive = (active: boolean) => {
-            // Handle visual state
+        (window as any).setViewMode = (mode: ViewMode) => {
+            setViewMode(mode);
+        };
+
+        // 关键修复：Swift 端调用的是 setMode 而非 setViewMode
+        (window as any).setMode = (window as any).setViewMode;
+
+        (window as any).setTitle = () => { };
+        (window as any).setWindowActive = (active: boolean) => {
             document.body.classList.toggle('inactive', !active);
         };
 
@@ -68,8 +78,16 @@ function Editor() {
         }
     }, [editor]);
 
+    const [floatingAnchorElem, setFloatingAnchorElem] = useState<HTMLDivElement | null>(null);
+
+    const onRef = (_floatingAnchorElem: HTMLDivElement) => {
+        if (_floatingAnchorElem !== null) {
+            setFloatingAnchorElem(_floatingAnchorElem);
+        }
+    };
+
     return (
-        <div className="editor-shell">
+        <div className={`editor-shell ${viewMode}-mode-active`} data-view-mode={viewMode}>
             <div className="toolbar-wrapper">
                 <NewNoteButton />
                 <ToolbarPlugin
@@ -79,10 +97,17 @@ function Editor() {
                     setIsLinkEditMode={setIsLinkEditMode}
                 />
             </div>
-            <div className="editor-container">
-                <div className="editor-scroller">
+
+            <div className="mode-container">
+                <div className="editor-container" ref={onRef}>
                     <RichTextPlugin
-                        contentEditable={<ContentEditable className="editor-input" />}
+                        contentEditable={
+                            <div className="editor-scroller">
+                                <div className="editor">
+                                    <ContentEditable className="editor-input" />
+                                </div>
+                            </div>
+                        }
                         placeholder={<div className="editor-placeholder">输入内容...</div>}
                         ErrorBoundary={LexicalErrorBoundary}
                     />
@@ -95,17 +120,20 @@ function Editor() {
                     <DragDropPastePlugin />
                     <TableActionMenuPlugin />
                     <TableCellResizerPlugin />
-                    <TableHoverActionsPlugin />
-                    <DraggableBlockPlugin />
+                    {floatingAnchorElem && (
+                        <>
+                            <TableHoverActionsPlugin anchorElem={floatingAnchorElem} />
+                            <DraggableBlockPlugin anchorElem={floatingAnchorElem} />
+                        </>
+                    )}
                     <CaretFixPlugin />
                     <ShortcutsPlugin
                         editor={editor}
                         setIsLinkEditMode={setIsLinkEditMode}
                     />
                     <OnChangePlugin onChange={onChange} />
-
-                    <OnChangePlugin onChange={onChange} />
                 </div>
+                {viewMode === 'todo' && <TodoView />}
             </div>
         </div>
     );

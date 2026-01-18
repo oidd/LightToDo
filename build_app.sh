@@ -108,4 +108,5 @@ EOF
 echo -n "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"
 
 echo "✅ App Bundle 创建成功: $APP_BUNDLE"
-echo "🚀 请运行命令: open \"$APP_BUNDLE\""
+echo "🚀 正在启动应用..."
+open "$APP_BUNDLE"

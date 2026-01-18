@@ -121,7 +121,7 @@ struct MainView: View {
                 .padding(.leading, 0) // 由外层 Padding 控制
             }
             // 展开时在面板右侧 (260侧边栏 + 15 WebviewPadding = 275)，折叠时避开红绿灯 (95)
-            .padding(.leading, isSidebarCollapsed ? 95 : 275)
+            .padding(.leading, isSidebarCollapsed ? 99 : 279)
             .padding(.top, 14)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isSidebarCollapsed)
             .zIndex(3)

@@ -9,9 +9,9 @@
     will-change: transform, opacity;
     will-change: transform, opacity;
     display: flex;
-    /* Move to left gutter: 20px padding - closer to content */
-    margin-left: -6px;
-    z-index: 100;
+    /* Balanced position: -22px ensures visibility without overlap */
+    margin-left: -22px !important;
+    z-index: 1000;
     transition:
         transform 140ms ease-in-out,
         opacity 160ms ease-in-out;
@@ -20,7 +20,7 @@
 .draggable-block-menu .icon {
     width: 16px;
     height: 16px;
-    opacity: 0.3;
+    opacity: 0.2;
     background-image: url(../../images/icons/draggable-block-menu.svg);
 }
 
