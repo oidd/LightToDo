@@ -1,0 +1,37 @@
+/**
+ * Custom Caret Styles
+ */
+
+/* 隐藏原生光标 */
+.hide-native-caret {
+    caret-color: transparent !important;
+}
+
+/* 自定义光标样式 */
+.custom-caret {
+    position: absolute;
+    width: 2px;
+    background-color: rgb(5, 5, 5);
+    pointer-events: none;
+    z-index: 100;
+    animation: blink 1s step-end infinite;
+}
+
+/* 光标闪烁动画 */
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0;
+    }
+}
+
+/* 当编辑器失去焦点时，隐藏自定义光标 */
+.ContentEditable__root:not(:focus)+.custom-caret,
+.ContentEditable__root:not(:focus-within)~.custom-caret {
+    display: none !important;
+}
