@@ -34,7 +34,7 @@ struct MainView: View {
                 Button(action: toggleSidebar) {
                     ZStack {
                         // 1. 点击热区 & 强制尺寸占位
-                        Color.clear
+                        Color.black.opacity(0.001)
                             .frame(width: 28, height: 28)
                             .contentShape(Rectangle())
                         
@@ -129,6 +129,12 @@ struct MainView: View {
                     }
                     .frame(width: 104, height: 28)
                 }
+                .contentShape(Rectangle()) // 确保整个区域可交互
+                .onHover { hover in // 鼠标进入即视为交互，防止微小移动触发离开
+                     if hover, let delegate = NSApplication.shared.delegate as? AppDelegate {
+                         delegate.windowController?.notifyUserInteraction()
+                     }
+                }
                 .padding(.leading, 0) // 由外层 Padding 控制
             }
             // 展开时在面板右侧 (260侧边栏 + 15 WebviewPadding = 275)，折叠时避开红绿灯 (95)
@@ -138,7 +144,7 @@ struct MainView: View {
             .zIndex(4)
             
             // 5. 顶部可拖拽手柄区域
-            Color.clear
+            Color.black.opacity(0.001)
                 .frame(height: 44)
                 .contentShape(Rectangle())
                 .allowWindowDrag()
