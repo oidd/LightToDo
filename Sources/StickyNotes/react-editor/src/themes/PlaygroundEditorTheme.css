@@ -56,11 +56,13 @@
 
 .PlaygroundEditorTheme__paragraph mark {
   background-color: unset;
+  color: inherit;
 }
 
 .PlaygroundEditorTheme__textHighlight {
   background: rgba(255, 212, 0, 0.14);
   border-bottom: 2px solid rgba(255, 212, 0, 0.3);
+  color: inherit;
 }
 
 .PlaygroundEditorTheme__textItalic {
@@ -661,6 +663,7 @@
   background: rgba(255, 212, 0, 0.14);
   border-bottom: 2px solid rgba(255, 212, 0, 0.3);
   padding-bottom: 2px;
+  color: inherit;
 }
 
 .PlaygroundEditorTheme__markOverlap {
@@ -786,4 +789,31 @@
   margin-right: 8px;
   background-repeat: no-repeat;
   background-size: contain;
+}
+
+/* Dark Mode Overrides */
+@media (prefers-color-scheme: dark) {
+  .PlaygroundEditorTheme__textHighlight {
+    background: rgba(255, 212, 0, 0.4) !important;
+    /* 更高的不透明度 */
+    border-bottom: 2px solid rgba(255, 212, 0, 0.6) !important;
+    color: inherit !important;
+  }
+
+  .PlaygroundEditorTheme__mark {
+    background: rgba(255, 212, 0, 0.4) !important;
+    /* 更高的不透明度 */
+    border-bottom: 2px solid rgba(255, 212, 0, 0.6) !important;
+    color: inherit !important;
+  }
+
+  .PlaygroundEditorTheme__markOverlap {
+    background: rgba(255, 212, 0, 0.6) !important;
+    border-bottom: 2px solid rgba(255, 212, 0, 0.8) !important;
+  }
+
+  .PlaygroundEditorTheme__mark.selected {
+    background: rgba(255, 212, 0, 0.6) !important;
+    border-bottom: 2px solid rgba(255, 212, 0, 1) !important;
+  }
 }

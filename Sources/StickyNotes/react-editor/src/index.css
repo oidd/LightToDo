@@ -23,6 +23,12 @@ body {
   padding: 0;
 }
 
+mark {
+  background-color: unset;
+  color: inherit;
+}
+
+
 header {
   max-width: 580px;
   margin: auto;
