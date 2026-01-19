@@ -12,6 +12,7 @@ extension UTType {
 struct Note: Identifiable, Codable, Equatable, Transferable {
     var id: UUID
     var content: String  // HTML 格式的字符串
+    var mode: String = "note" // 笔记模式 ("note" or "todo")
     var createdAt: Date
     var updatedAt: Date
     var isPinned: Bool = false  // 置顶状态
@@ -22,13 +23,44 @@ struct Note: Identifiable, Codable, Equatable, Transferable {
         CodableRepresentation(contentType: .note)
     }
     
-    init(id: UUID = UUID(), content: String = "", isPinned: Bool = false, sortOrder: Int = 0) {
+    init(id: UUID = UUID(), content: String = "", mode: String = "note", isPinned: Bool = false, sortOrder: Int = 0) {
         self.id = id
         self.content = content
+        self.mode = mode
         self.createdAt = Date()
         self.updatedAt = Date()
         self.isPinned = isPinned
         self.sortOrder = sortOrder
+    }
+
+    // MARK: - Codable Implementation
+    
+    enum CodingKeys: String, CodingKey {
+        case id, content, mode, createdAt, updatedAt, isPinned, sortOrder
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        content = try container.decode(String.self, forKey: .content)
+        // 兼容旧数据：如果缺少 mode 字段，默认为 "note"
+        mode = try container.decodeIfPresent(String.self, forKey: .mode) ?? "note"
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        // 兼容旧数据
+        isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+        sortOrder = try container.decodeIfPresent(Int.self, forKey: .sortOrder) ?? 0
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(content, forKey: .content)
+        try container.encode(mode, forKey: .mode)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(updatedAt, forKey: .updatedAt)
+        try container.encode(isPinned, forKey: .isPinned)
+        try container.encode(sortOrder, forKey: .sortOrder)
     }
 
     

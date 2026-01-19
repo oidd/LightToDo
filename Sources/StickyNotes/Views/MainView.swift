@@ -96,6 +96,7 @@ struct MainView: View {
                             withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
                                 editorMode = "note" 
                             }
+                            updateMode("note")
                         }) {
                             Text("笔记")
                                 .font(.system(size: 13, weight: editorMode == "note" ? .semibold : .medium))
@@ -110,6 +111,7 @@ struct MainView: View {
                             withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
                                 editorMode = "todo"
                             }
+                            updateMode("todo")
                         }) {
                             Text("待办")
                                 .font(.system(size: 13, weight: editorMode == "todo" ? .semibold : .medium))
@@ -139,6 +141,32 @@ struct MainView: View {
         }
         .frame(minWidth: 700, minHeight: 450)
         .ignoresSafeArea()
+        .onAppear {
+            syncModeWithSelection()
+        }
+        .onChange(of: notesManager.selectedNoteId) { _ in
+            syncModeWithSelection()
+        }
+    }
+    
+    private func syncModeWithSelection() {
+        if let id = notesManager.selectedNoteId,
+           let note = notesManager.notes.first(where: { $0.id == id }) {
+            if editorMode != note.mode {
+                editorMode = note.mode
+            }
+        }
+    }
+
+    private func updateMode(_ mode: String) {
+        if let id = notesManager.selectedNoteId,
+           let index = notesManager.notes.firstIndex(where: { $0.id == id }) {
+            var note = notesManager.notes[index]
+            if note.mode != mode {
+                note.mode = mode
+                notesManager.updateNote(note)
+            }
+        }
     }
     
     private var isWindowActive: Bool {
