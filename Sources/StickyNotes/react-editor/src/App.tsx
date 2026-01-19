@@ -10,7 +10,7 @@ import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
-import { $getRoot, EditorState, TextNode, $setSelection, FORMAT_ELEMENT_COMMAND } from 'lexical';
+import { $getRoot, EditorState, TextNode, $setSelection, FORMAT_ELEMENT_COMMAND, FORMAT_TEXT_COMMAND } from 'lexical';
 import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list';
 import { clearFormatting } from './plugins/ToolbarPlugin/utils';
 
@@ -95,6 +95,10 @@ function Editor() {
             } else if (type === 'bullet') {
                 editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
             }
+        };
+
+        (window as any).toggleInlineCode = () => {
+            editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'code');
         };
 
         if (window.webkit?.messageHandlers?.editor) {

@@ -77,6 +77,14 @@ class ClickableWebView: WKWebView {
                     submenu.removeAllItems()
                     for subItem in validSubItems {
                         submenu.addItem(subItem)
+                        // 在"加下划线"后面添加 "插入代码块"
+                        if subItem.title.contains("加下划线") || subItem.title.contains("Underline") {
+                             let codeItem = NSMenuItem(title: "插入代码块", action: #selector(toggleInlineCode(_:)), keyEquivalent: "c")
+                             codeItem.keyEquivalentModifierMask = [.command, .shift]
+                             codeItem.target = self
+                             // codeItem.image = NSImage(systemSymbolName: "chevron.left.forwardslash.chevron.right", accessibilityDescription: nil) 
+                             submenu.addItem(codeItem)
+                        }
                     }
                 }
             }
@@ -177,6 +185,10 @@ class ClickableWebView: WKWebView {
     
     @objc func setBulletList(_ sender: Any) {
         self.evaluateJavaScript("window.setListType && window.setListType('bullet')") { _, _ in }
+    }
+    
+    @objc func toggleInlineCode(_ sender: Any) {
+        self.evaluateJavaScript("window.toggleInlineCode && window.toggleInlineCode()") { _, _ in }
     }
 }
 
