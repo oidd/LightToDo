@@ -38,7 +38,7 @@ struct MainView: View {
                 // 折叠: 165 (用户指定)
                 // 展开: 245 (用户指定)
                 .padding(.leading, isSidebarCollapsed ? 165 : 245)
-                .padding(.top, 11) 
+                .padding(.top, 8) 
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isSidebarCollapsed)
         }
 
@@ -185,8 +185,12 @@ struct GlassySegmentedControl: View {
         .background {
             Capsule()
                 .fill(baseColor)
-                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.05), radius: 6, x: 0, y: 2) // Deepen black shadow in dark mode
-                .shadow(color: (colorScheme == .dark) ? Color.white.opacity(0.1) : .clear, radius: 1, x: 0, y: 0) // Dark Mode Rim Light
+                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.05), radius: 6, x: 0, y: 2)
+                .shadow(color: (colorScheme == .dark) ? Color.white.opacity(0.1) : .clear, radius: 1, x: 0, y: 0)
+                .overlay(
+                    Capsule()
+                        .strokeBorder(Color.white.opacity(0.5), lineWidth: 0.5) // 极细纯白内发光
+                )
         }
     }
 }
