@@ -12,6 +12,8 @@ import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
 import { $getRoot, EditorState, TextNode, $setSelection, FORMAT_ELEMENT_COMMAND, FORMAT_TEXT_COMMAND } from 'lexical';
 import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list';
+import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
+import { TRANSFORMERS } from '@lexical/markdown';
 import { clearFormatting } from './plugins/ToolbarPlugin/utils';
 
 import CodeHighlightPlugin from './plugins/CodeHighlightPlugin';
@@ -160,6 +162,7 @@ function Editor() {
                         editor={editor}
                         setIsLinkEditMode={setIsLinkEditMode}
                     />
+                    <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
                     <OnChangePlugin onChange={onChange} />
                 </div>
                 {viewMode === 'todo' && <TodoView />}
