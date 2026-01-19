@@ -180,14 +180,9 @@ struct SidebarView: View {
                 .contentShape(Rectangle())
             
             // 文档列表
-            if !isCollapsed {
-                noteListView
-                    .transition(.opacity.combined(with: .move(edge: .leading)))
-            } else {
-                Spacer()
-            }
+            noteListView
         }
-        .frame(width: isCollapsed ? 0 : 210)
+        .frame(width: 210)
         // Removed custom background to rely on native sidebar
         .padding(.vertical, 0)
     }

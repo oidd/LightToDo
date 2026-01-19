@@ -21,7 +21,7 @@ struct MainView: View {
                     get: { columnVisibility == .detailOnly },
                     set: { columnVisibility = $0 ? .detailOnly : .all }
                 ))
-                    .navigationSplitViewColumnWidth(min: 180, ideal: 210, max: 300)
+                    .navigationSplitViewColumnWidth(min: 210, ideal: 210, max: 210)
             } detail: {
             EditorView(editorMode: $editorMode, isSidebarCollapsed: isSidebarCollapsed)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -55,9 +55,9 @@ struct MainView: View {
                 // Mode Switcher
                 modeSwitcher
             }
-            .padding(.leading, isSidebarCollapsed ? 100 : 290)
+            .padding(.leading, isSidebarCollapsed ? 100 : 250)
             .padding(.top, 12)
-            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isSidebarCollapsed)
+            // Animation modifier removed to sync with global transaction
             , alignment: .topLeading
         )
         .frame(minWidth: 700, minHeight: 450)
