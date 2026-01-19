@@ -187,7 +187,7 @@ struct SidebarView: View {
                 Spacer()
             }
         }
-        .frame(width: isCollapsed ? 0 : 230)
+        .frame(width: isCollapsed ? 0 : 210)
         // Removed custom background to rely on native sidebar
         .padding(.vertical, 0)
     }

@@ -59,7 +59,7 @@ struct EditorView: View {
         }
         .padding(.top, 50) // Space for toolbar and mode switcher
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.leading, isSidebarCollapsed ? 0 : 230) // Ensure content is not hidden under sidebar overlay
+        .padding(.leading, isSidebarCollapsed ? 0 : 270) // Ensure content is not hidden under sidebar overlay
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isSidebarCollapsed)
     }
     
