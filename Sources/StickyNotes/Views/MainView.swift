@@ -170,7 +170,7 @@ struct GlassySegmentedControl: View {
             }
         }
         .fixedSize() // 强制容器只包裹内容，防止在 Toolbar 中被拉长
-        .padding(2)
+
         .background(alignment: .leading) {
             // Active Indicator Pill
             if options.contains(where: { $0.id == selection }) {
