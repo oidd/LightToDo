@@ -5,6 +5,7 @@ class NotesManager: ObservableObject {
     @Published var notes: [Note] = []
     @Published var selectedNoteId: UUID?  // 当前活跃笔记（编辑器显示的）
     @Published var selectedNoteIds: Set<UUID> = []  // 多选集合
+    @Published var isSidebarFocused: Bool = true  // 追踪侧边栏是否拥有焦点
     
     private var lastSelectedIndex: Int?  // Shift 选择的锚点
     private let storage = StorageManager.shared

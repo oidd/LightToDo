@@ -13,10 +13,6 @@ struct EditorView: View {
             if let selectedId = notesManager.selectedNoteId,
                let _ = notesManager.notes.first(where: { $0.id == selectedId }) {
                 
-                // 顶部留白区域 (SwiftUI)，避开红绿灯按钮
-                Color.clear
-                    .frame(height: 44)
-                
                 // Quill 富文本编辑器（仅正文）
                 QuillEditor(
                     content: $content,
@@ -41,6 +37,9 @@ struct EditorView: View {
                 .onAppear {
                     loadSelectedNote()
                 }
+                .onTapGesture {
+                    notesManager.isSidebarFocused = false
+                }
                 .disableWindowDrag() // 修复触控板轻点不灵敏问题：明确告诉系统此区域不可拖拽窗口
             } else {
                 // 无选中文档时的占位视图 - 仅显示新建按钮
@@ -58,8 +57,9 @@ struct EditorView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .padding(.top, 50) // Space for toolbar and mode switcher
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.leading, isSidebarCollapsed ? 20 : 260) // 展开时为阴影留出空间
+        .padding(.leading, isSidebarCollapsed ? 0 : 230) // Ensure content is not hidden under sidebar overlay
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isSidebarCollapsed)
     }
     
@@ -86,3 +86,4 @@ struct EditorView: View {
         }
     }
 }
+

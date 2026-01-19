@@ -5,160 +5,76 @@ struct MainView: View {
     @EnvironmentObject var windowManager: WindowManager
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.controlActiveState) var controlActiveState
-    @State private var isSidebarCollapsed = false
-    @State private var editorMode: String = "note" // 默认为笔记模式
+    
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var editorMode: String = "note" 
+    
+    private var isSidebarCollapsed: Bool {
+        columnVisibility == .detailOnly
+    }
     
     var body: some View {
         ZStack(alignment: .topLeading) {
-            
-            // 1. 底层：编辑区 (全屏但让出左侧)
+            // 1. Main Content
+            NavigationSplitView(columnVisibility: $columnVisibility) {
+                SidebarView(isCollapsed: Binding(
+                    get: { columnVisibility == .detailOnly },
+                    set: { columnVisibility = $0 ? .detailOnly : .all }
+                ))
+                    .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 300)
+            } detail: {
             EditorView(editorMode: $editorMode, isSidebarCollapsed: isSidebarCollapsed)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                // 给编辑器添加不透明背景，防止它也变透明
-                .background(Color(nsColor: .windowBackgroundColor)) 
-                .zIndex(1)
-            
-            // 2. 中层：侧边栏 (zIndex=2，在编辑器上方)
-            SidebarView(isCollapsed: $isSidebarCollapsed)
-                .zIndex(2)
-            
-            // 3. 顶层：窗口控制按钮 (绝对锁定位置)
-            WindowControlButtons(isActive: isWindowActive)
-                .padding(.leading, 26)
-                .padding(.top, 22)
-                .zIndex(3)
-            
-            // 4. 顶层：功能按钮 (根据折叠状态调整位置)
-            HStack(spacing: 10) {
-                // 自定义侧边栏切换按钮
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(nsColor: .windowBackgroundColor))
+                    .ignoresSafeArea()
+            }
+            .navigationSplitViewStyle(.balanced)
+            .toolbar(.hidden, for: .windowToolbar) // Hide native toggle
+        }
+        .overlay(
+            // Window Control Buttons - on top-left of sidebar panel
+            NativeWindowControlButtons(isActive: isWindowActive)
+                .frame(width: 70, height: 24)
+                .padding(Edge.Set.leading, 18) 
+                .padding(Edge.Set.top, 15)
+            , alignment: .topLeading
+        )
+        .overlay(
+            // Combined Toggle + Mode Switcher - moves together based on sidebar state
+            HStack(spacing: 12) {
+                // Sidebar Toggle Button
                 Button(action: toggleSidebar) {
-                    ZStack {
-                        // 1. 点击热区 & 强制尺寸占位
-                        Color.black.opacity(0.001)
-                            .frame(width: 28, height: 28)
-                            .contentShape(Rectangle())
-                        
-                        // 2. 图标绘制
-                        ZStack {
-                            // 外框
-                            RoundedRectangle(cornerRadius: 4)
-                                .stroke(Color.secondary, lineWidth: 1.4)
-                                .frame(width: 20, height: 18)
-                            
-                            // 分割线
-                            Rectangle()
-                                .fill(Color.secondary)
-                                .frame(width: 1.4, height: 18)
-                                .offset(x: -4)
-                            
-                            // 左侧列表线
-                            VStack(spacing: 2.5) {
-                                Capsule().frame(width: 3.5, height: 1.2)
-                                Capsule().frame(width: 3.5, height: 1.2)
-                                Capsule().frame(width: 3.5, height: 1.2)
-                            }
-                            .foregroundColor(.secondary)
-                            .offset(x: -7)
-                        }
-                    }
-                    .background(Color.clear)
-                    .clipShape(Circle())
+                    Image(systemName: "sidebar.left")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 
-                // --- 模式切换器 (胶囊样式) ---
-                ZStack {
-                    // 背景胶囊 (灰色轨道)
-                    Capsule()
-                        .fill(Color(nsColor: .controlColor).opacity(0.5)) 
-                        .frame(width: 104, height: 28)
-                        .overlay(
-                            Capsule().stroke(Color.black.opacity(0.05), lineWidth: 0.5)
-                        )
-                    
-                    // 动态滑动滑块 (白色)
-                    HStack(spacing: 0) {
-                        if editorMode == "todo" { Spacer() }
-                        Capsule()
-                            .fill(colorScheme == .dark ? Color(nsColor: .controlAccentColor).opacity(0.15) : Color.white)
-                            .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
-                            .frame(width: 50, height: 24)
-                            .padding(.horizontal, 2)
-                        if editorMode == "note" { Spacer() }
-                    }
-                    .frame(width: 104, height: 28)
-                    .animation(.spring(response: 0.25, dampingFraction: 0.7), value: editorMode)
-                    
-                    // 文字层
-                    HStack(spacing: 0) {
-                        // 笔记按钮
-                        Button(action: { 
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                                editorMode = "note" 
-                            }
-                            updateMode("note")
-                            if let delegate = NSApplication.shared.delegate as? AppDelegate {
-                                delegate.windowController?.notifyUserInteraction()
-                            }
-                        }) {
-                            Text("笔记")
-                                .font(.system(size: 13, weight: editorMode == "note" ? .semibold : .medium))
-                                .foregroundColor(editorMode == "note" ? .accentColor : .primary.opacity(0.6))
-                                .frame(width: 50, height: 28)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        
-                        // 待办按钮
-                        Button(action: {
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                                editorMode = "todo"
-                            }
-                            updateMode("todo")
-                            if let delegate = NSApplication.shared.delegate as? AppDelegate {
-                                delegate.windowController?.notifyUserInteraction()
-                            }
-                        }) {
-                            Text("待办")
-                                .font(.system(size: 13, weight: editorMode == "todo" ? .semibold : .medium))
-                                .foregroundColor(editorMode == "todo" ? .accentColor : .primary.opacity(0.6))
-                                .frame(width: 50, height: 28)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .frame(width: 104, height: 28)
-                }
-                .contentShape(Rectangle()) // 确保整个区域可交互
-                .onHover { hover in // 鼠标进入即视为交互，防止微小移动触发离开
-                     if hover, let delegate = NSApplication.shared.delegate as? AppDelegate {
-                         delegate.windowController?.notifyUserInteraction()
-                     }
-                }
-                .padding(.leading, 0) // 由外层 Padding 控制
+                // Mode Switcher
+                modeSwitcher
             }
-            // 展开时在面板右侧 (260侧边栏 + 15 WebviewPadding = 275)，折叠时避开红绿灯 (95)
-            .padding(.leading, isSidebarCollapsed ? 99 : 279)
-            .padding(.top, 14)
+            .padding(.leading, isSidebarCollapsed ? 100 : 250)
+            .padding(.top, 12)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isSidebarCollapsed)
-            .zIndex(4)
-            
-            // 5. 顶部可拖拽手柄区域
-            Color.black.opacity(0.001)
-                .frame(height: 44)
-                .contentShape(Rectangle())
-                .allowWindowDrag()
-                .padding(.leading, isSidebarCollapsed ? 95 : 260)
-                .zIndex(0)
-        }
+            , alignment: .topLeading
+        )
         .frame(minWidth: 700, minHeight: 450)
-        .background(Color.black.opacity(0.001)) // 防止点击穿透和鼠标误判离开
+        .background(Color.black.opacity(0.001))
         .ignoresSafeArea()
         .onAppear {
             syncModeWithSelection()
         }
         .onChange(of: notesManager.selectedNoteId) { _ in
             syncModeWithSelection()
+        }
+    }
+
+    // Helper to notify window controller
+    private func notifyInteraction() {
+        if let delegate = NSApplication.shared.delegate as? AppDelegate {
+            delegate.windowController?.notifyUserInteraction()
         }
     }
     
@@ -188,13 +104,73 @@ struct MainView: View {
     
     private func toggleSidebar() {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            isSidebarCollapsed.toggle()
+            columnVisibility = (columnVisibility == .all) ? .detailOnly : .all
         }
     }
     
     private func addNewNote() {
         withAnimation {
             _ = notesManager.addNote()
+        }
+    }
+    
+    private var modeSwitcher: some View {
+        ZStack {
+            Capsule()
+                .fill(Color(nsColor: .controlColor).opacity(0.5))
+                .frame(width: 104, height: 28)
+                .overlay(
+                    Capsule().stroke(Color.black.opacity(0.05), lineWidth: 0.5)
+                )
+            
+            HStack(spacing: 0) {
+                if editorMode == "todo" { Spacer() }
+                Capsule()
+                    .fill(colorScheme == .dark ? Color(nsColor: .controlAccentColor).opacity(0.15) : Color.white)
+                    .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
+                    .frame(width: 50, height: 24)
+                    .padding(.horizontal, 2)
+                if editorMode == "note" { Spacer() }
+            }
+            .frame(width: 104, height: 28)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: editorMode)
+            
+            HStack(spacing: 0) {
+                Button(action: {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                        editorMode = "note"
+                    }
+                    updateMode("note")
+                    notifyInteraction()
+                }) {
+                    Text("笔记")
+                        .font(.system(size: 13, weight: editorMode == "note" ? .semibold : .medium))
+                        .foregroundColor(editorMode == "note" ? .accentColor : .primary.opacity(0.6))
+                        .frame(width: 50, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                
+                Button(action: {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                        editorMode = "todo"
+                    }
+                    updateMode("todo")
+                    notifyInteraction()
+                }) {
+                    Text("待办")
+                        .font(.system(size: 13, weight: editorMode == "todo" ? .semibold : .medium))
+                        .foregroundColor(editorMode == "todo" ? .accentColor : .primary.opacity(0.6))
+                        .frame(width: 50, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(width: 104, height: 28)
+        }
+        .contentShape(Rectangle())
+        .onHover { hover in
+            if hover { notifyInteraction() }
         }
     }
 }

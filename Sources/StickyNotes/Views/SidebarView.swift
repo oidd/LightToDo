@@ -176,7 +176,7 @@ struct SidebarView: View {
         VStack(spacing: 0) {
             // 顶部占位区域（为红黄绿和功能按钮留空间）
             Color.black.opacity(0.001)
-                .frame(height: 44)
+                .frame(height: 12)
                 .contentShape(Rectangle())
             
             // 文档列表
@@ -187,12 +187,9 @@ struct SidebarView: View {
                 Spacer()
             }
         }
-        .frame(width: isCollapsed ? 1 : 230)
-        .background(sidebarBackground)
-        .shadow(color: Color.black.opacity(isCollapsed || !isActive ? 0 : (colorScheme == .dark ? 0.4 : 0.12)), 
-               radius: 12, x: 3, y: 3)
-        .padding(.leading, 12)
-        .padding(.vertical, 12)
+        .frame(width: isCollapsed ? 0 : 230)
+        // Removed custom background to rely on native sidebar
+        .padding(.vertical, 0)
     }
     
     // MARK: - Subviews

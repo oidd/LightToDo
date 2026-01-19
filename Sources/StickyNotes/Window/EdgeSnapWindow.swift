@@ -164,7 +164,11 @@ class EdgeSnapWindowController: NSObject {
              hasUserInteraction = false
              pendingDockInteraction = false
              indicatorWindow?.orderOut(nil)
-             stopMouseTrackingTimer() // 停止之前的折叠检测
+             stopMouseTrackingTimer()
+             
+             // Restore interaction
+             window?.alphaValue = 1
+             window?.ignoresMouseEvents = false
          }
     }
     
