@@ -33,7 +33,7 @@
 }
 
 .PlaygroundEditorTheme__h2 {
-  font-size: 15px;
+  font-size: 22px;
   color: var(--text-color);
   opacity: 0.7;
   font-weight: 700;
@@ -42,7 +42,7 @@
 }
 
 .PlaygroundEditorTheme__h3 {
-  font-size: 12px;
+  font-size: 20px;
   margin: 0;
   text-transform: uppercase;
 }
@@ -195,7 +195,7 @@
   display: block;
   padding: 8px 8px 8px 52px;
   line-height: 1.53;
-  font-size: 13px;
+  font-size: 15px;
   margin: 0;
   margin-top: 8px;
   margin-bottom: 8px;
@@ -527,7 +527,7 @@
 .PlaygroundEditorTheme__listItem {
   margin: 0 32px;
   font-family: var(--listitem-marker-font-family);
-  font-size: var(--listitem-marker-font-size);
+  font-size: 18px;
   background-color: var(--listitem-marker-background-color);
 }
 
@@ -535,7 +535,7 @@
   color: var(--listitem-marker-color);
   background-color: var(--listitem-marker-background-color);
   font-family: var(--listitem-marker-font-family);
-  font-size: var(--listitem-marker-font-size);
+  font-size: 18px;
 }
 
 .PlaygroundEditorTheme__listItemChecked,
@@ -816,5 +816,23 @@
   .PlaygroundEditorTheme__mark.selected {
     background: rgba(255, 212, 0, 0.6) !important;
     border-bottom: 2px solid rgba(255, 212, 0, 1) !important;
+  }
+
+  /* Code Block Dark Mode */
+  .PlaygroundEditorTheme__code {
+    background-color: #2c2c2e !important;
+    color: #f8f8f2 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .PlaygroundEditorTheme__code:before {
+    background-color: #252527 !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #999 !important;
+  }
+
+  /* Inline Code Dark Mode */
+  .PlaygroundEditorTheme__textCode {
+    background-color: rgba(255, 255, 255, 0.1) !important;
   }
 }

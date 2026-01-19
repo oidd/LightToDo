@@ -14,6 +14,7 @@ import { $getRoot, EditorState, TextNode, $setSelection, FORMAT_ELEMENT_COMMAND 
 import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list';
 import { clearFormatting } from './plugins/ToolbarPlugin/utils';
 
+import CodeHighlightPlugin from './plugins/CodeHighlightPlugin';
 import { SettingsContext } from './context/SettingsContext';
 import { ToolbarContext } from './context/ToolbarContext';
 import { SharedHistoryContext } from './context/SharedHistoryContext';
@@ -140,6 +141,7 @@ function Editor() {
                     <CheckListPlugin />
                     <TablePlugin />
                     <ImagesPlugin />
+                    <CodeHighlightPlugin />
                     <DragDropPastePlugin />
                     <TableActionMenuPlugin />
                     <TableCellResizerPlugin />
