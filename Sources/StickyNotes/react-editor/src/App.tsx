@@ -10,7 +10,9 @@ import { TablePlugin } from '@lexical/react/LexicalTablePlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { $generateHtmlFromNodes, $generateNodesFromDOM } from '@lexical/html';
-import { $getRoot, EditorState, TextNode, $setSelection } from 'lexical';
+import { $getRoot, EditorState, TextNode, $setSelection, FORMAT_ELEMENT_COMMAND } from 'lexical';
+import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list';
+import { clearFormatting } from './plugins/ToolbarPlugin/utils';
 
 import { SettingsContext } from './context/SettingsContext';
 import { ToolbarContext } from './context/ToolbarContext';
@@ -75,6 +77,23 @@ function Editor() {
         (window as any).setTitle = () => { };
         (window as any).setWindowActive = (active: boolean) => {
             document.body.classList.toggle('inactive', !active);
+        };
+
+        // Context Menu Handlers
+        (window as any).clearFormatting = () => {
+            clearFormatting(editor);
+        };
+
+        (window as any).setAlignment = (alignment: 'left' | 'center' | 'right' | 'justify') => {
+            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, alignment);
+        };
+
+        (window as any).setListType = (type: 'number' | 'bullet') => {
+            if (type === 'number') {
+                editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
+            } else if (type === 'bullet') {
+                editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
+            }
         };
 
         if (window.webkit?.messageHandlers?.editor) {
