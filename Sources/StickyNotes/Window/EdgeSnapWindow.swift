@@ -442,6 +442,16 @@ class EdgeSnapWindowController: NSObject {
     
     // MARK: - Interaction Handling
     
+    // 供外部 UI 调用，告知用户正在与窗口交互，防止自动收起
+    func notifyUserInteraction() {
+        if state == .expanded {
+            hasUserInteraction = true
+            state = .locked
+            // 如果我们已经判定交互了，Dock 的等待标识就不需要了
+            pendingDockInteraction = false
+        }
+    }
+    
     private func handleLocalInteraction(_ event: NSEvent) {
         // 用户在窗口内点击或打字，视为锁定状态，不自动收起
         if state == .expanded || state == .locked {

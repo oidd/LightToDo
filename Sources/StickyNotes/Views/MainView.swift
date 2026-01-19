@@ -97,6 +97,9 @@ struct MainView: View {
                                 editorMode = "note" 
                             }
                             updateMode("note")
+                            if let delegate = NSApplication.shared.delegate as? AppDelegate {
+                                delegate.windowController?.notifyUserInteraction()
+                            }
                         }) {
                             Text("笔记")
                                 .font(.system(size: 13, weight: editorMode == "note" ? .semibold : .medium))
@@ -112,6 +115,9 @@ struct MainView: View {
                                 editorMode = "todo"
                             }
                             updateMode("todo")
+                            if let delegate = NSApplication.shared.delegate as? AppDelegate {
+                                delegate.windowController?.notifyUserInteraction()
+                            }
                         }) {
                             Text("待办")
                                 .font(.system(size: 13, weight: editorMode == "todo" ? .semibold : .medium))
@@ -140,6 +146,7 @@ struct MainView: View {
                 .zIndex(0)
         }
         .frame(minWidth: 700, minHeight: 450)
+        .background(Color.black.opacity(0.001)) // 防止点击穿透和鼠标误判离开
         .ignoresSafeArea()
         .onAppear {
             syncModeWithSelection()

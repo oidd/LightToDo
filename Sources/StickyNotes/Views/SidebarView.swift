@@ -175,8 +175,9 @@ struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             // 顶部占位区域（为红黄绿和功能按钮留空间）
-            Color.clear
+            Color.black.opacity(0.001)
                 .frame(height: 44)
+                .contentShape(Rectangle())
             
             // 文档列表
             if !isCollapsed {

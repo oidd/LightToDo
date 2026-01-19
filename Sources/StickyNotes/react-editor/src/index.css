@@ -2563,6 +2563,15 @@ textarea {
   display: none !important;
 }
 
+/* Add animations for active states */
+.note-mode-active .editor-container {
+  animation: fadeInMode 0.3s ease-out;
+}
+
+.todo-mode-active .todo-view {
+  animation: fadeInMode 0.3s ease-out;
+}
+
 /* Transitions for switching modes removed duplicate .todo-view rules */
 
 /* 待办模式下仅隐藏编辑工具按钮，保留切换按钮和容器 */
