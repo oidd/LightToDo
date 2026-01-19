@@ -56,6 +56,32 @@ class ClickableWebView: WKWebView {
         }
         
         // 3. 在"替换"前插入 "清除格式"
+        // 2.5 进一步清理 "字体" 子菜单 (移除点不动的项)
+        for item in newItems {
+            if item.title.contains("字体") || item.title == "Font" {
+                if let submenu = item.submenu {
+                    var validSubItems: [NSMenuItem] = []
+                    for subItem in submenu.items {
+                        let t = subItem.title
+                        // 移除: 显示字体, 空心字, 样式, 显示颜色
+                        if t.contains("显示字体") || t.contains("Show Fonts") ||
+                           t.contains("空心字") || t.contains("Outline") ||
+                           t.contains("样式") || t.contains("Styles") ||
+                           t.contains("显示颜色") || t.contains("Show Colors") ||
+                           t == "字体" || t == "Font"/*有些系统包含自身标题*/ {
+                            continue
+                        }
+                        validSubItems.append(subItem)
+                    }
+                    
+                    submenu.removeAllItems()
+                    for subItem in validSubItems {
+                        submenu.addItem(subItem)
+                    }
+                }
+            }
+        }
+
         if let idx = insertIndexForClearFormatting {
             let clearItem = NSMenuItem(title: "清除格式", action: #selector(clearFormatting(_:)), keyEquivalent: "")
             clearItem.target = self
