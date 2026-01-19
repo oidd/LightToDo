@@ -186,11 +186,6 @@ struct GlassySegmentedControl: View {
             Capsule()
                 .fill(baseColor)
                 .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.05), radius: 6, x: 0, y: 2)
-                .shadow(color: (colorScheme == .dark) ? Color.white.opacity(0.1) : .clear, radius: 1, x: 0, y: 0)
-                .overlay(
-                    Capsule()
-                        .strokeBorder(Color.white.opacity(0.5), lineWidth: 0.5) // 极细纯白内发光
-                )
         }
     }
 }
