@@ -29,37 +29,30 @@ struct MainView: View {
                     .ignoresSafeArea()
             }
             .navigationSplitViewStyle(.balanced)
-            .toolbar(.hidden, for: .windowToolbar) // Hide native toggle
+            .toolbar(.hidden, for: .windowToolbar) // 隐藏原生 Toolbar 以彻底消除系统折叠按钮
         }
         .overlay(
-            // Window Control Buttons - on top-left of sidebar panel
+            // Window Control Buttons (红绿灯)
             NativeWindowControlButtons(isActive: isWindowActive)
                 .frame(width: 70, height: 24)
-                .padding(Edge.Set.leading, 18) 
-                .padding(Edge.Set.top, 15)
+                .padding(.leading, 18) 
+                .padding(.top, 15)
             , alignment: .topLeading
         )
         .overlay(
-            // Combined Toggle + Mode Switcher - moves together based on sidebar state
+            // 自定义 Custom Toolbar Islands (覆盖在顶层)
             HStack(spacing: 12) {
-                // Sidebar Toggle Button
-                Button(action: toggleSidebar) {
-                    Image(systemName: "sidebar.left")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                        .frame(width: 24, height: 24)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                // 1. 圆形折叠按钮
+                sidebarToggleButton
                 
-                // Mode Switcher
+                // 2. 胶囊模式切换
                 modeSwitcher
             }
-            .padding(.leading, isSidebarCollapsed ? 100 : 250)
-            .padding(.top, 12)
-            // Animation modifier removed to sync with global transaction
+            .padding(.leading, isSidebarCollapsed ? 100 : 250) // 微调至 250，在 240(偏左) 和 260(偏右) 之间取平衡
+            .padding(.top, 15)
             , alignment: .topLeading
         )
+        // Removed old Overlay block
         .frame(minWidth: 700, minHeight: 450)
         .background(Color.black.opacity(0.001))
         .ignoresSafeArea()
@@ -114,63 +107,131 @@ struct MainView: View {
         }
     }
     
+    // MARK: - Liquid Glass Components
+    
+    private var sidebarToggleButton: some View {
+        GlassyButton(
+            icon: "sidebar.left",
+            action: toggleSidebar,
+            isActive: false
+        )
+    }
+    
     private var modeSwitcher: some View {
-        ZStack {
-            Capsule()
-                .fill(Color(nsColor: .controlColor).opacity(0.5))
-                .frame(width: 104, height: 28)
+        GlassySegmentedControl(
+            selection: $editorMode,
+            options: [
+                ("笔记", "note"),
+                ("待办", "todo")
+            ],
+            onSelect: { mode in
+                updateMode(mode)
+                notifyInteraction()
+            }
+        )
+    }
+}
+
+// MARK: - Reusable Liquid Glass Components
+
+struct GlassyButton: View {
+    var icon: String
+    var action: () -> Void
+    var isActive: Bool
+    
+    @Environment(\.colorScheme) var colorScheme
+    @State private var isPressed = false
+    
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.primary)
+                .frame(width: 36, height: 36) // 精确匹配模式切换器高度 (28 + 2*2 + 2*2 = 36)
+                // 独立的圆形玻璃底座
+                .background {
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                    Circle()
+                        .fill(Color.white.opacity(colorScheme == .light ? 0.6 : 0.2))
+                }
                 .overlay(
-                    Capsule().stroke(Color.black.opacity(0.05), lineWidth: 0.5)
+                    Circle()
+                        .strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5)
                 )
-            
-            HStack(spacing: 0) {
-                if editorMode == "todo" { Spacer() }
-                Capsule()
-                    .fill(colorScheme == .dark ? Color(nsColor: .controlAccentColor).opacity(0.15) : Color.white)
-                    .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
-                    .frame(width: 50, height: 24)
-                    .padding(.horizontal, 2)
-                if editorMode == "note" { Spacer() }
-            }
-            .frame(width: 104, height: 28)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: editorMode)
-            
-            HStack(spacing: 0) {
-                Button(action: {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                        editorMode = "note"
-                    }
-                    updateMode("note")
-                    notifyInteraction()
-                }) {
-                    Text("笔记")
-                        .font(.system(size: 13, weight: editorMode == "note" ? .semibold : .medium))
-                        .foregroundColor(editorMode == "note" ? .accentColor : .primary.opacity(0.6))
-                        .frame(width: 50, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                
-                Button(action: {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                        editorMode = "todo"
-                    }
-                    updateMode("todo")
-                    notifyInteraction()
-                }) {
-                    Text("待办")
-                        .font(.system(size: 13, weight: editorMode == "todo" ? .semibold : .medium))
-                        .foregroundColor(editorMode == "todo" ? .accentColor : .primary.opacity(0.6))
-                        .frame(width: 50, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            .frame(width: 104, height: 28)
+                .opacity(isPressed ? 0.7 : 1.0)
         }
-        .contentShape(Rectangle())
-        .onHover { hover in
-            if hover { notifyInteraction() }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+    }
+}
+
+struct GlassySegmentedControl: View {
+    @Binding var selection: String
+    let options: [(title: String, id: String)]
+    var onSelect: ((String) -> Void)?
+    
+    @Environment(\.colorScheme) var colorScheme
+    @Namespace private var segmentNamespace
+    
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(options, id: \.id) { option in
+                Button(action: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        selection = option.id
+                    }
+                    onSelect?(option.id)
+                }) {
+                    ZStack {
+                        // 1. 选中指示器 (滑块)
+                        if selection == option.id {
+                            Capsule()
+                                .fill(Color.secondary.opacity(0.15))
+                                .matchedGeometryEffect(id: "ActiveBar", in: segmentNamespace)
+                                .frame(width: 55, height: 28) 
+                                .padding(2)
+                        }
+                        
+                        // 2. 文字标签
+                        Text(option.title)
+                            .font(.system(size: 13, weight: selection == option.id ? .medium : .regular))
+                            .foregroundColor(.primary)
+                            .frame(width: 55, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2)
+        // 独立的胶囊玻璃底座
+        .background {
+            ZStack {
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                Capsule()
+                    .fill(Color.white.opacity(colorScheme == .light ? 0.6 : 0.2))
+            }
+            .overlay(
+                Capsule()
+                    .strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5)
+            )
+        }
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func hideSidebarToggle() -> some View {
+        if #available(macOS 14.0, *) {
+            self.toolbar(removing: .sidebarToggle)
+        } else {
+            self
         }
     }
 }
