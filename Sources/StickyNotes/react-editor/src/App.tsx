@@ -132,7 +132,11 @@ function Editor() {
                 <div className="editor-container" ref={onRef}>
                     <RichTextPlugin
                         contentEditable={
-                            <div className="editor-scroller">
+                            <div className="editor-scroller" onClick={(e) => {
+                                if (e.target === e.currentTarget) {
+                                    editor.focus();
+                                }
+                            }}>
                                 <div className="editor">
                                     <ContentEditable className="editor-input" />
                                 </div>
