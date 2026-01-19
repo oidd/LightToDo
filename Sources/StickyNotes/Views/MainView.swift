@@ -113,7 +113,8 @@ struct MainView: View {
             onSelect: { mode in
                 updateMode(mode)
                 notifyInteraction()
-            }
+            },
+            isActive: isWindowActive
         )
     }
 }
@@ -124,11 +125,30 @@ struct GlassySegmentedControl: View {
     @Binding var selection: String
     let options: [(title: String, id: String)]
     var onSelect: ((String) -> Void)?
+    var isActive: Bool = true
     
     @Environment(\.colorScheme) var colorScheme
     
     private var selectedIndex: Int {
         options.firstIndex(where: { $0.id == selection }) ?? 0
+    }
+    
+    private var sliderColor: Color {
+        if colorScheme == .dark {
+            // Dark Mode: Active #333333, Idle #252525
+            return isActive ? Color(red: 0.2, green: 0.2, blue: 0.2) : Color(red: 0.145, green: 0.145, blue: 0.145)
+        } else {
+            return isActive ? Color.black.opacity(0.08) : Color(red: 0.949, green: 0.949, blue: 0.949)
+        }
+    }
+    
+    private var baseColor: Color {
+        if colorScheme == .dark {
+            // Dark Mode: Active #1b1b1b, Idle #1d1d1d
+            return isActive ? Color(red: 0.106, green: 0.106, blue: 0.106) : Color(red: 0.114, green: 0.114, blue: 0.114)
+        } else {
+            return isActive ? Color.white : Color(red: 0.976, green: 0.976, blue: 0.976)
+        }
     }
     
     var body: some View {
@@ -142,7 +162,7 @@ struct GlassySegmentedControl: View {
                 }) {
                     Text(option.title)
                         .font(.system(size: 13, weight: selection == option.id ? .medium : .regular))
-                        .foregroundColor(.primary)
+                        .foregroundColor(selection == option.id ? .blue : .primary)
                         .frame(width: 55, height: 28)
                         .contentShape(Rectangle())
                 }
@@ -150,11 +170,12 @@ struct GlassySegmentedControl: View {
             }
         }
         .fixedSize() // 强制容器只包裹内容，防止在 Toolbar 中被拉长
+        .padding(2)
         .background(alignment: .leading) {
             // Active Indicator Pill
             if options.contains(where: { $0.id == selection }) {
                 Capsule()
-                    .fill(Color.secondary.opacity(0.15))
+                    .fill(sliderColor)
                     .frame(width: 55, height: 28)
                     .offset(x: CGFloat(selectedIndex) * 55)
             }
@@ -162,16 +183,10 @@ struct GlassySegmentedControl: View {
         .padding(2)
         // 独立的胶囊玻璃底座
         .background {
-            ZStack {
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                Capsule()
-                    .fill(Color.white.opacity(colorScheme == .light ? 0.6 : 0.2))
-            }
-            .overlay(
-                Capsule()
-                    .strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5)
-            )
+            Capsule()
+                .fill(baseColor)
+                .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.3 : 0.05), radius: 6, x: 0, y: 2) // Deepen black shadow in dark mode
+                .shadow(color: (colorScheme == .dark) ? Color.white.opacity(0.1) : .clear, radius: 1, x: 0, y: 0) // Dark Mode Rim Light
         }
     }
 }
