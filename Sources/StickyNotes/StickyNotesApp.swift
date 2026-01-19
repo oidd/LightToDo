@@ -70,6 +70,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 window.deminiaturize(nil)
             }
             window.makeKeyAndOrderFront(nil)
+            
+            // 关键：如果是贴边隐藏状态，强制展开
+            windowController?.forceExpand()
+            
             hideStandardButtons(for: window)
             return false // 关键：告知系统我们已经手动处理了恢复逻辑，不要新建 WindowGroup 窗口
         }
