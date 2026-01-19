@@ -29,29 +29,21 @@ struct MainView: View {
                     .ignoresSafeArea()
             }
             .navigationSplitViewStyle(.balanced)
-            .toolbar(.hidden, for: .windowToolbar) // 隐藏原生 Toolbar 以彻底消除系统折叠按钮
+            // 移除 Toolbar，使用 Overlay 以彻底解决背景拉伸问题
+            .toolbar { }
         }
-        .overlay(
-            // Window Control Buttons (红绿灯)
-            NativeWindowControlButtons(isActive: isWindowActive)
-                .frame(width: 70, height: 24)
-                .padding(.leading, 18) 
-                .padding(.top, 15)
-            , alignment: .topLeading
-        )
-        .overlay(
-            // 自定义 Custom Toolbar Islands (覆盖在顶层)
-            HStack(spacing: 12) {
-                // 1. 圆形折叠按钮
-                sidebarToggleButton
-                
-                // 2. 胶囊模式切换
-                modeSwitcher
-            }
-            .padding(.leading, isSidebarCollapsed ? 100 : 250) // 微调至 250，在 240(偏左) 和 260(偏右) 之间取平衡
-            .padding(.top, 15)
-            , alignment: .topLeading
-        )
+        .overlay(alignment: .topLeading) {
+            modeSwitcher
+                // 动态调整位置：
+                // 折叠: 165 (用户指定)
+                // 展开: 245 (用户指定)
+                .padding(.leading, isSidebarCollapsed ? 165 : 245)
+                .padding(.top, 11) 
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isSidebarCollapsed)
+        }
+
+
+
         // Removed old Overlay block
         .frame(minWidth: 700, minHeight: 450)
         .background(Color.black.opacity(0.001))
@@ -109,13 +101,7 @@ struct MainView: View {
     
     // MARK: - Liquid Glass Components
     
-    private var sidebarToggleButton: some View {
-        GlassyButton(
-            icon: "sidebar.left",
-            action: toggleSidebar,
-            isActive: false
-        )
-    }
+
     
     private var modeSwitcher: some View {
         GlassySegmentedControl(
@@ -134,49 +120,16 @@ struct MainView: View {
 
 // MARK: - Reusable Liquid Glass Components
 
-struct GlassyButton: View {
-    var icon: String
-    var action: () -> Void
-    var isActive: Bool
-    
-    @Environment(\.colorScheme) var colorScheme
-    @State private var isPressed = false
-    
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.primary)
-                .frame(width: 36, height: 36) // 精确匹配模式切换器高度 (28 + 2*2 + 2*2 = 36)
-                // 独立的圆形玻璃底座
-                .background {
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                    Circle()
-                        .fill(Color.white.opacity(colorScheme == .light ? 0.6 : 0.2))
-                }
-                .overlay(
-                    Circle()
-                        .strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5)
-                )
-                .opacity(isPressed ? 0.7 : 1.0)
-        }
-        .buttonStyle(.plain)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
-        )
-    }
-}
-
 struct GlassySegmentedControl: View {
     @Binding var selection: String
     let options: [(title: String, id: String)]
     var onSelect: ((String) -> Void)?
     
     @Environment(\.colorScheme) var colorScheme
-    @Namespace private var segmentNamespace
+    
+    private var selectedIndex: Int {
+        options.firstIndex(where: { $0.id == selection }) ?? 0
+    }
     
     var body: some View {
         HStack(spacing: 0) {
@@ -187,25 +140,23 @@ struct GlassySegmentedControl: View {
                     }
                     onSelect?(option.id)
                 }) {
-                    ZStack {
-                        // 1. 选中指示器 (滑块)
-                        if selection == option.id {
-                            Capsule()
-                                .fill(Color.secondary.opacity(0.15))
-                                .matchedGeometryEffect(id: "ActiveBar", in: segmentNamespace)
-                                .frame(width: 55, height: 28) 
-                                .padding(2)
-                        }
-                        
-                        // 2. 文字标签
-                        Text(option.title)
-                            .font(.system(size: 13, weight: selection == option.id ? .medium : .regular))
-                            .foregroundColor(.primary)
-                            .frame(width: 55, height: 28)
-                            .contentShape(Rectangle())
-                    }
+                    Text(option.title)
+                        .font(.system(size: 13, weight: selection == option.id ? .medium : .regular))
+                        .foregroundColor(.primary)
+                        .frame(width: 55, height: 28)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+            }
+        }
+        .fixedSize() // 强制容器只包裹内容，防止在 Toolbar 中被拉长
+        .background(alignment: .leading) {
+            // Active Indicator Pill
+            if options.contains(where: { $0.id == selection }) {
+                Capsule()
+                    .fill(Color.secondary.opacity(0.15))
+                    .frame(width: 55, height: 28)
+                    .offset(x: CGFloat(selectedIndex) * 55)
             }
         }
         .padding(2)

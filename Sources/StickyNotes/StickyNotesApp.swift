@@ -187,17 +187,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func hideStandardButtons(for window: NSWindow) {
-        guard isMainWindow(window) else { return }
-        
-        let hideAction = {
-            window.standardWindowButton(.closeButton)?.isHidden = true
-            window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-            window.standardWindowButton(.zoomButton)?.isHidden = true
-        }
-        
-        hideAction()
-        // 关键：延迟 0.1s 再次强行隐藏，避开 OS 的自动重绘
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: hideAction)
+        // Disabled to allow native traffic lights
     }
     
     func toggleAppVisibility() {
