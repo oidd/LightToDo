@@ -45,7 +45,7 @@ struct MainView: View {
 
 
         // Removed old Overlay block
-        .frame(minWidth: 700, minHeight: 450)
+        .frame(minWidth: 250, minHeight: 450)
         .background(Color.black.opacity(0.001))
         .ignoresSafeArea()
         .onAppear {
