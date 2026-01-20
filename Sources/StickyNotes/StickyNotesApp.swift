@@ -103,6 +103,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.isOpaque = false
         window.backgroundColor = .clear
         
+        // 实际限制最小窗口尺寸（SwiftUI minWidth=250 是为了利用规律解决卡顿）
+        window.minSize = CGSize(width: 500, height: 450)
+        
         hideStandardButtons(for: window)
         
         // 延迟修复：确保在各种状态切换后按钮依然隐藏
@@ -168,6 +171,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let window = notification.object as? NSWindow {
             hideStandardButtons(for: window)
         }
+    }
+    
+    // 强制限制窗口最小尺寸（SwiftUI minWidth=250 是为了解决卡顿，但实际限制为 500）
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        let minWidth: CGFloat = 500
+        let minHeight: CGFloat = 450
+        return NSSize(
+            width: max(frameSize.width, minWidth),
+            height: max(frameSize.height, minHeight)
+        )
     }
     
     func windowDidBecomeKey(_ notification: Notification) {
