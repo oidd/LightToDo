@@ -19,6 +19,7 @@ export interface ReminderData {
   // We store the original configuration to recalculate correctly
   originalTime: number;
   autoRefreshedAt?: number; // Timestamp when this was auto-created
+  completedAt?: number; // Timestamp when task was completed
 }
 
 export type SerializedReminderNode = Spread<

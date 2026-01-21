@@ -4,6 +4,7 @@ import { $getRoot, $getNodeByKey, TextNode, LexicalNode, NodeKey } from 'lexical
 import { $isListItemNode, $isListNode, ListItemNode, $createListItemNode, $createListNode } from '@lexical/list';
 import { $createReminderNode, $isReminderNode, ReminderNode, ReminderData } from '../nodes/ReminderNode';
 import ReminderSettingsDialog from './ReminderSettingsDialog';
+import DropDown, { DropDownItem } from './DropDown';
 
 interface TodoItem {
     key: string;
@@ -250,6 +251,20 @@ export default function TodoView() {
                 const node = $getNodeByKey(key);
                 if ($isListItemNode(node)) {
                     node.setChecked(true);
+
+                    // Add/Update completion timestamp
+                    const children = node.getChildren();
+                    const existing = children.find(c => $isReminderNode(c)) as ReminderNode | undefined;
+                    if (existing) {
+                        existing.setData({ ...existing.getData(), completedAt: Date.now() });
+                    } else {
+                        node.append($createReminderNode({
+                            time: 0,
+                            repeatType: 'none',
+                            originalTime: 0,
+                            completedAt: Date.now()
+                        }));
+                    }
                 }
             });
         }
@@ -296,9 +311,9 @@ export default function TodoView() {
             const oldReminderNode = children.find(c => $isReminderNode(c));
             if (oldReminderNode) {
                 oldReminderNode.remove();
-                // Add back a reminder node but with no repeat, preserving history
-                node.append($createReminderNode({ ...reminder, repeatType: 'none' }));
             }
+            // Add back a reminder node but with no repeat, preserving history and adding completion time
+            node.append($createReminderNode({ ...reminder, repeatType: 'none', completedAt: Date.now() }));
 
             // 2. Create new task for next cycle
             const newNode = $createListItemNode();
@@ -431,6 +446,47 @@ export default function TodoView() {
         });
     };
 
+    const clearCompletedTasks = (mode: 'all' | '1month' | '6months' | '1year') => {
+        editor.update(() => {
+            const root = $getRoot();
+            const now = Date.now();
+            const threshold = {
+                'all': 0,
+                '1month': 30 * 24 * 3600 * 1000,
+                '6months': 180 * 24 * 3600 * 1000,
+                '1year': 365 * 24 * 3600 * 1000
+            }[mode];
+
+            function walkAndRemove(node: LexicalNode) {
+                if ($isListItemNode(node) && node.getChecked()) {
+                    let shouldRemove = false;
+                    if (mode === 'all') {
+                        shouldRemove = true;
+                    } else {
+                        const children = node.getChildren();
+                        const reminderNode = children.find(c => $isReminderNode(c)) as ReminderNode | undefined;
+                        if (reminderNode) {
+                            const data = reminderNode.getData();
+                            if (data.completedAt && (now - data.completedAt) > threshold) {
+                                shouldRemove = true;
+                            }
+                        }
+                    }
+                    if (shouldRemove) {
+                        node.remove();
+                        return;
+                    }
+                }
+
+                if ('getChildren' in node && typeof (node as any).getChildren === 'function') {
+                    const children = [...(node as any).getChildren()];
+                    children.forEach(walkAndRemove);
+                }
+            }
+            walkAndRemove(root);
+        });
+    };
+
     const setItemRef = useCallback((key: string, el: HTMLTextAreaElement | null) => {
         itemRefs.current[key] = el;
     }, []);
@@ -450,6 +506,25 @@ export default function TodoView() {
         <div className={`todo-view ${filterMode}-mode`}>
             <div className="todo-header" style={{ color: currentHeader.color }}>
                 {currentHeader.text}
+                <div className="todo-subheader">
+                    {isCompletedMode ? `${todos.length}项已完成任务` : `${todos.length}项待办任务`}
+                    {isCompletedMode && (
+                        <>
+                            <span className="dot-separator">&bull;</span>
+                            <DropDown
+                                buttonLabel="清除"
+                                buttonClassName="todo-clear-btn"
+                                stopCloseOnClickSelf={true}
+                                hideChevron={true}
+                            >
+                                <DropDownItem className="item" onClick={() => clearCompletedTasks('1month')}>超过1个月</DropDownItem>
+                                <DropDownItem className="item" onClick={() => clearCompletedTasks('6months')}>超过6个月</DropDownItem>
+                                <DropDownItem className="item" onClick={() => clearCompletedTasks('1year')}>超过1年</DropDownItem>
+                                <DropDownItem className="item" onClick={() => clearCompletedTasks('all')}>所有已完成任务</DropDownItem>
+                            </DropDown>
+                        </>
+                    )}
+                </div>
             </div>
             <div className="todo-list">
                 {todos.map(todo => (
