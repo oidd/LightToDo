@@ -220,6 +220,26 @@ export default function TodoView() {
             const el = itemRefs.current[key];
             if (el) {
                 el.focus();
+
+                // If it's a new task with a prefix (like in Important tab), position cursor after the prefix
+                editor.getEditorState().read(() => {
+                    const node = $getNodeByKey(key);
+                    if ($isListItemNode(node)) {
+                        const reminderNode = node.getChildren().find(c => $isReminderNode(c)) as ReminderNode | undefined;
+                        if (reminderNode) {
+                            const priority = reminderNode.getPriority();
+                            let prefix = '';
+                            if (priority === 'high') prefix = '!!! ';
+                            else if (priority === 'medium') prefix = '!! ';
+                            else if (priority === 'low') prefix = '! ';
+
+                            if (prefix) {
+                                el.setSelectionRange(prefix.length, prefix.length);
+                            }
+                        }
+                    }
+                });
+
                 pendingFocusKey.current = null;
             }
         }
@@ -378,6 +398,30 @@ export default function TodoView() {
                 node.append(new TextNode(text));
                 if (reminderNode) {
                     node.append(reminderNode);
+                }
+            }
+        });
+    };
+
+    const handlePriorityChange = (key: string, priority: 'none' | 'low' | 'medium' | 'high') => {
+        editor.update(() => {
+            const node = $getNodeByKey(key);
+            if ($isListItemNode(node)) {
+                const children = node.getChildren();
+                const reminderNode = children.find(c => $isReminderNode(c)) as ReminderNode | undefined;
+                if (reminderNode) {
+                    reminderNode.setPriority(priority);
+                } else if (priority !== 'none') {
+                    const now = Date.now();
+                    node.append($createReminderNode({
+                        time: 0,
+                        repeatType: 'none',
+                        priority,
+                        hasReminder: false,
+                        hasDate: false,
+                        hasTime: false,
+                        originalTime: 0
+                    }));
                 }
             }
         });
@@ -590,6 +634,7 @@ export default function TodoView() {
                         registerRef={setItemRef}
                         onToggle={(checked) => handleToggle(todo.key, checked, todo)}
                         onTextChange={handleTextChange}
+                        onPriorityChange={handlePriorityChange}
                         onEnter={handleEnter}
                         onDelete={handleDelete}
                         onOpenReminder={() => openReminderSettings(todo.key, todo.reminder)}
@@ -633,11 +678,12 @@ interface RowProps {
     onTextChange: (key: string, text: string) => void;
     onEnter: (key: string) => void;
     onDelete: (key: string) => void;
+    onPriorityChange: (key: string, priority: 'none' | 'low' | 'medium' | 'high') => void;
     onOpenReminder: () => void;
     isCompletedMode: boolean;
 }
 
-function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDelete, onOpenReminder, isCompletedMode }: RowProps) {
+function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode }: RowProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [localText, setLocalText] = useState(todo.text);
     const isComposing = useRef(false);
@@ -703,9 +749,28 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
             } else {
                 onEnter(todo.key);
             }
-        } else if (e.key === 'Backspace' && localText === '') {
-            e.preventDefault();
-            onDelete(todo.key);
+        } else if (e.key === 'Backspace') {
+            const prefix = getPriorityPrefix() || '';
+            if (prefix && textareaRef.current &&
+                textareaRef.current.selectionStart === prefix.length &&
+                textareaRef.current.selectionEnd === prefix.length) {
+
+                e.preventDefault();
+                // Downgrade priority
+                const currentPriority = todo.reminder?.priority || 'none';
+                let nextPriority: 'none' | 'low' | 'medium' | 'high' = 'none';
+                if (currentPriority === 'high') nextPriority = 'medium';
+                else if (currentPriority === 'medium') nextPriority = 'low';
+                else if (currentPriority === 'low') nextPriority = 'none';
+
+                onPriorityChange(todo.key, nextPriority);
+                return;
+            }
+
+            if (localText === '') {
+                e.preventDefault();
+                onDelete(todo.key);
+            }
         }
     };
 

@@ -58,6 +58,15 @@ export class ReminderNode extends ElementNode {
     writable.__data = data;
   }
 
+  getPriority(): 'none' | 'low' | 'medium' | 'high' {
+    return this.__data.priority;
+  }
+
+  setPriority(priority: 'none' | 'low' | 'medium' | 'high'): void {
+    const writable = this.getWritable();
+    writable.__data = { ...writable.__data, priority };
+  }
+
   createDOM(config: EditorConfig): HTMLElement {
     const span = document.createElement('span');
     span.style.display = 'none';
