@@ -2276,6 +2276,16 @@ textarea {
   width: 100%;
   padding-top: 10px;
   /* Specific gap for first item */
+  flex: 1;
+  /* Fill remaining vertical space */
+}
+
+/* Clickable fill area at the bottom */
+.todo-fill-area {
+  flex: 1;
+  min-height: 100px;
+  cursor: text;
+  width: 100%;
 }
 
 .todo-row {
@@ -2483,6 +2493,12 @@ textarea {
   text-align: center;
   color: #8e8e93;
   font-size: 15px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: text;
+  height: 100%;
 }
 
 /* Transitions for switching modes */

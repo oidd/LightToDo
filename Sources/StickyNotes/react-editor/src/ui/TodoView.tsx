@@ -16,6 +16,7 @@ export default function TodoView() {
     const [editor] = useLexicalComposerContext();
     const [todos, setTodos] = useState<TodoItem[]>([]);
     const [filterMode, setFilterMode] = useState<string>('all');
+    const [searchQuery, setSearchQuery] = useState<string>('');
     const pendingFocusKey = useRef<string | null>(null);
     const itemRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
@@ -123,7 +124,7 @@ export default function TodoView() {
 
             // Final filter: strict matches OR (was displayed AND still exists)
             // But we must exclude checked items if mode is not completed (unless optimistic)
-            const finalFiltered = allItems.filter(t => {
+            let finalFiltered = allItems.filter(t => {
                 if (filterMode === 'completed') {
                     return t.checked;
                 }
@@ -137,9 +138,15 @@ export default function TodoView() {
                 return isStrict || isSticky;
             });
 
+            // Apply search filter (overrides all logic, searches within the current view content)
+            if (searchQuery.trim()) {
+                const lowerQuery = searchQuery.toLowerCase();
+                finalFiltered = finalFiltered.filter(t => t.text.toLowerCase().includes(lowerQuery));
+            }
+
             setTodos(finalFiltered);
         });
-    }, [editor, filterMode]);
+    }, [editor, filterMode, searchQuery]);
 
     useEffect(() => {
         updateTodos();
@@ -154,7 +161,32 @@ export default function TodoView() {
             // Clear sticky keys on mode switch
             displayedKeys.current.clear();
         };
-    }, []);
+
+        (window as any).setSearchQuery = (query: string) => {
+            setSearchQuery(query);
+        };
+
+        (window as any).addNewTodo = () => {
+            // Logic similar to handleCreateFirst but context aware
+            editor.getEditorState().read(() => {
+                const root = $getRoot();
+                // Check if we have any list items to append after, or if we need to create first
+                // We'll simulate a click on the "fill area" if items exist, or create first if empty
+                // But since we are outside the render loop, we need direct node access
+
+                // Simplest: use handleCreateFirst logic if empty, or handleEnter on last item
+                // However, handleEnter needs a key.
+                // Let's use a robust approach: find the last ListItemNode and insert after, or create new list.
+
+                const lastItem = todos.length > 0 ? todos[todos.length - 1] : null;
+                if (lastItem) {
+                    handleEnter(lastItem.key);
+                } else {
+                    handleCreateFirst();
+                }
+            });
+        };
+    }, [todos, editor]); // Add deps to ensure handleEnter/handleCreateFirst work with current state
 
     useEffect(() => {
         if (pendingFocusKey.current) {
@@ -435,18 +467,11 @@ export default function TodoView() {
                 ))}
                 {todos.length === 0 ? (
                     <div className="todo-empty" onClick={handleCreateFirst}>
-                        点击添加您的第一条待办事项...
+                        点击空白处添加待办事项
                     </div>
                 ) : filterMode !== 'completed' && (
-                    <div className="todo-row add-new" onClick={() => handleEnter(todos[todos.length - 1].key)}>
-                        <div className="todo-checkbox-wrapper">
-                            <div className="todo-checkbox" style={{ borderColor: 'transparent', opacity: 0.3 }}></div>
-                        </div>
-                        <div className="todo-content-wrapper">
-                            <div className="todo-input-mirror-container">
-                                <div className="todo-input" style={{ color: '#8e8e93', cursor: 'pointer' }}>新增待办事项</div>
-                            </div>
-                        </div>
+                    <div className="todo-fill-area" onClick={() => handleEnter(todos[todos.length - 1].key)}>
+                        {/* Invisible clickable area */}
                     </div>
                 )}
             </div>

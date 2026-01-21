@@ -320,6 +320,8 @@ struct QuillEditorWithTitle: NSViewRepresentable {
 struct QuillEditor: NSViewRepresentable {
     @Binding var content: String
     @Binding var filterMode: String
+    @Binding var searchText: String
+    @Binding var addTrigger: Int
     var isWindowActive: Bool = true
     var onContentUpdate: () -> Void
     var onCountsUpdate: ([String: Int]) -> Void
@@ -374,8 +376,21 @@ struct QuillEditor: NSViewRepresentable {
 
         // 检查模式变化
         if filterMode != context.coordinator.lastLoadedFilterMode && context.coordinator.isReady {
-             nsView.evaluateJavaScript("window.setFilterMode('\(filterMode)')") { _, _ in }
+             nsView.evaluateJavaScript("window.setFilterMode && window.setFilterMode('\(filterMode)')") { _, _ in }
              context.coordinator.lastLoadedFilterMode = filterMode
+        }
+        
+        // 检查搜索文本变化
+        if searchText != context.coordinator.lastSearchText && context.coordinator.isReady {
+             let escaped = searchText.replacingOccurrences(of: "'", with: "\\'")
+             nsView.evaluateJavaScript("window.setSearchQuery && window.setSearchQuery('\(escaped)')") { _, _ in }
+             context.coordinator.lastSearchText = searchText
+        }
+        
+        // 检查新增触发器
+        if addTrigger != context.coordinator.lastAddTrigger && context.coordinator.isReady {
+             nsView.evaluateJavaScript("window.addNewTodo && window.addNewTodo()") { _, _ in }
+             context.coordinator.lastAddTrigger = addTrigger
         }
     }
     
@@ -390,6 +405,8 @@ struct QuillEditor: NSViewRepresentable {
         var isReady: Bool = false
         var lastIsWindowActive: Bool = true
         var lastLoadedFilterMode: String = "all"
+        var lastSearchText: String = ""
+        var lastAddTrigger: Int = 0
         
         init(_ parent: QuillEditor) {
             self.parent = parent
