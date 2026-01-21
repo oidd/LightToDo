@@ -72,62 +72,25 @@ struct EditorView: View {
         .padding(.top, 0)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                ZStack(alignment: .leading) {
-                    if searchText.isEmpty {
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(.secondary)
-                            Text("搜索")
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.leading, 8)
-                        .allowsHitTesting(false)
-                    }
+            ToolbarItemGroup(placement: .automatic) {
+                Spacer()
+                
+                // 极简搜索框
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
                     
-                    TextField("", text: $searchText)
+                    TextField("搜索", text: $searchText)
                         .textFieldStyle(.plain)
-                        .padding(.vertical, 5)
-                        .padding(.horizontal, 8)
-                        .frame(width: 150) // Adjust width as needed
+                        .frame(width: 150)
                 }
-                .padding(.vertical, 5)
+                .padding(.vertical, 4)
                 .padding(.horizontal, 8)
-                .background(Color(nsColor: .controlBackgroundColor).opacity(0.8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                )
-                .cornerRadius(8)
-            }
-            
-            ToolbarItem(placement: .primaryAction) {
-                if notesManager.currentFilter != .completed {
-                    Button(action: {
-                        addTrigger += 1
-                    }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 15, weight: .semibold)) // Slightly larger icon
-                            .foregroundColor(.primary)
-                            .frame(width: 14, height: 14) // Icon size
-                            .padding(8) // Padding for circle
-                            .background(
-                                Circle()
-                                    .fill(Color(nsColor: .controlBackgroundColor))
-                                    .shadow(color: Color.black.opacity(0.1), radius: 1, x: 0, y: 1) // Native-like shadow
-                            )
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.black.opacity(0.05), lineWidth: 0.5) // Subtle border
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .help("新建待办事项")
-                }
+                // 注意：完全不设置 background 和 overlay，以利用系统生成的胶囊背景
             }
         }
     }
-    
     private func loadSelectedNote() {
         guard let selectedId = notesManager.selectedNoteId,
               let note = notesManager.notes.first(where: { $0.id == selectedId }) else {
@@ -143,12 +106,11 @@ struct EditorView: View {
         guard let selectedId = notesManager.selectedNoteId,
               var note = notesManager.notes.first(where: { $0.id == selectedId }) else { return }
         
-        if note.content != content {
-            note.content = content
-            // 注意：Note 模型现在会自动根据 content 计算名为 displayTitle 的属性
-            notesManager.updateNote(note)
-            print("💾 保存内容，长度：\(content.count)")
-        }
+        if note.content != self.content {
+    note.content = self.content
+    // 注意：Note 模型现在会自动根据 content 计算名为 displayTitle 的属性
+    notesManager.updateNote(note)
+    print("💾 保存内容，长度：\(self.content.count)")
+}
     }
 }
-
