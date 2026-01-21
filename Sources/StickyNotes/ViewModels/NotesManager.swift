@@ -23,6 +23,12 @@ class NotesManager: ObservableObject {
     
     func loadData() {
         notes = storage.loadNotes()
+        
+        // Ensure at least one note exists for the Todo-only app
+        if notes.isEmpty {
+            _ = addNote()
+        }
+        
         // 自动选中第一个笔记
         if let firstNote = notes.first {
             selectedNoteId = firstNote.id

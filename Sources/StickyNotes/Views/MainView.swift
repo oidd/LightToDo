@@ -14,72 +14,25 @@ struct MainView: View {
     }
     
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            // 1. Main Content
-            NavigationSplitView(columnVisibility: $columnVisibility) {
-                SidebarView(isCollapsed: Binding(
-                    get: { columnVisibility == .detailOnly },
-                    set: { columnVisibility = $0 ? .detailOnly : .all }
-                ))
-                    .navigationSplitViewColumnWidth(min: 210, ideal: 210, max: 210)
-            } detail: {
-            EditorView(editorMode: $editorMode, isSidebarCollapsed: isSidebarCollapsed)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(nsColor: .windowBackgroundColor))
-                    .ignoresSafeArea()
-            }
-            .navigationSplitViewStyle(.balanced)
-            // 移除 Toolbar，使用 Overlay 以彻底解决背景拉伸问题
-            .toolbar { }
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            SidebarView(isCollapsed: Binding(
+                get: { columnVisibility == .detailOnly },
+                set: { columnVisibility = $0 ? .detailOnly : .all }
+            ))
+                .navigationSplitViewColumnWidth(min: 210, ideal: 210, max: 210)
+        } detail: {
+            EditorView(editorMode: .constant("todo"), isSidebarCollapsed: isSidebarCollapsed)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(nsColor: .windowBackgroundColor))
         }
-        .overlay(alignment: .topLeading) {
-            modeSwitcher
-                // 动态调整位置：
-                // 折叠: 165 (用户指定)
-                // 展开: 245 (用户指定)
-                .padding(.leading, isSidebarCollapsed ? 165 : 245)
-                .padding(.top, 8) 
-                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isSidebarCollapsed)
-        }
-
-
-
-        // Removed old Overlay block
+        .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 250, minHeight: 450)
-        .background(Color.black.opacity(0.001))
-        .ignoresSafeArea()
-        .onAppear {
-            syncModeWithSelection()
-        }
-        .onChange(of: notesManager.selectedNoteId) { _ in
-            syncModeWithSelection()
-        }
     }
 
     // Helper to notify window controller
     private func notifyInteraction() {
         if let delegate = NSApplication.shared.delegate as? AppDelegate {
             delegate.windowController?.notifyUserInteraction()
-        }
-    }
-    
-    private func syncModeWithSelection() {
-        if let id = notesManager.selectedNoteId,
-           let note = notesManager.notes.first(where: { $0.id == id }) {
-            if editorMode != note.mode {
-                editorMode = note.mode
-            }
-        }
-    }
-
-    private func updateMode(_ mode: String) {
-        if let id = notesManager.selectedNoteId,
-           let index = notesManager.notes.firstIndex(where: { $0.id == id }) {
-            var note = notesManager.notes[index]
-            if note.mode != mode {
-                note.mode = mode
-                notesManager.updateNote(note)
-            }
         }
     }
     
@@ -91,31 +44,6 @@ struct MainView: View {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
             columnVisibility = (columnVisibility == .all) ? .detailOnly : .all
         }
-    }
-    
-    private func addNewNote() {
-        withAnimation {
-            _ = notesManager.addNote()
-        }
-    }
-    
-    // MARK: - Liquid Glass Components
-    
-
-    
-    private var modeSwitcher: some View {
-        GlassySegmentedControl(
-            selection: $editorMode,
-            options: [
-                ("笔记", "note"),
-                ("待办", "todo")
-            ],
-            onSelect: { mode in
-                updateMode(mode)
-                notifyInteraction()
-            },
-            isActive: isWindowActive
-        )
     }
 }
 

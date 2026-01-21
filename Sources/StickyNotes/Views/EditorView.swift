@@ -40,7 +40,7 @@ struct EditorView: View {
                 .onTapGesture {
                     notesManager.isSidebarFocused = false
                 }
-                .disableWindowDrag() // 修复触控板轻点不灵敏问题：明确告诉系统此区域不可拖拽窗口
+                .disableWindowDrag()
             } else {
                 // 无选中文档时的占位视图 - 仅显示新建按钮
                 VStack {
@@ -57,10 +57,8 @@ struct EditorView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .padding(.top, 50) // Space for toolbar and mode switcher
+        .padding(.top, 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.leading, isSidebarCollapsed ? 0 : 230) // Ensure content is not hidden under sidebar overlay
-
     }
     
     private func loadSelectedNote() {

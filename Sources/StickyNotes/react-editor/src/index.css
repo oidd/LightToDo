@@ -2091,83 +2091,6 @@ body {
   min-height: 0 !important;
 }
 
-/* =========================================
-   TOOLBAR WRAPPER - PHYSICS ALIGNMENT
-   ========================================= */
-.toolbar-wrapper {
-  display: flex !important;
-  align-items: center !important;
-  gap: 16px !important;
-
-  /* FIX: LOCALIZED WIDTH ONLY - ENSURES NO TEXT SHIFT */
-  width: fit-content !important;
-
-  margin-top: 0 !important;
-  margin-bottom: 8px !important;
-  padding: 10px !important;
-
-  /* ALIGNMENT: Landing at 20px exactly on the red line */
-  margin-left: -10px !important;
-  margin-right: auto !important;
-
-  box-sizing: border-box !important;
-}
-
-/* Note Mode Toolbar Adjustment */
-.note-mode-active .toolbar-wrapper {
-  margin-top: 8px !important;
-}
-
-.new-note-btn {
-  width: 44px !important;
-  height: 44px !important;
-  border-radius: 50% !important;
-  background-color: var(--module-bg) !important;
-  border: none !important;
-  box-shadow: var(--shadow) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  flex-shrink: 0 !important;
-}
-
-.new-note-btn:hover {
-  background-color: var(--active-bg) !important;
-  transform: scale(1.05) !important;
-}
-
-.new-note-btn:active {
-  transform: scale(0.95) !important;
-}
-
-/* =========================================
-   TOOLBAR - FIXED SIZE (NON-DEFORMABLE)
-   ========================================= */
-.toolbar {
-  background-color: var(--module-bg) !important;
-  border: none !important;
-  border-radius: 999px !important;
-  margin: 0 !important;
-  box-shadow: var(--shadow) !important;
-  z-index: 100 !important;
-
-  /* PREVENTS DEFORMATION */
-  min-width: max-content !important;
-  flex-shrink: 0 !important;
-
-  display: flex !important;
-  padding: 4px 16px !important;
-  height: auto !important;
-  white-space: nowrap !important;
-  overflow: visible !important;
-}
-
-@media (prefers-color-scheme: dark) {
-  .toolbar:not(.inactive *) {
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  }
-}
 
 /* =========================================
    EDITOR CONTENT - PRECISION 44px PADDING
@@ -2283,128 +2206,21 @@ button.toolbar-item:has(i.link) {
 }
 
 /* =========================================
-   COLOR PICKER STYLES
+   TODO VIEW
    ========================================= */
-.color-picker-wrapper {
-  padding: 12px
-}
-
-.color-picker-basic-color {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin: 0;
-  padding: 0
-}
-
-.color-picker-basic-color button {
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  height: 28px;
-  width: 28px;
-  cursor: pointer;
-  list-style-type: none;
-  transition: transform .1s ease, box-shadow .1s ease
-}
-
-.color-picker-basic-color button:hover {
-  transform: scale(1.1)
-}
-
-.color-picker-basic-color button.active {
-  box-shadow: 0 0 0 2px #0000004d;
-  transform: scale(1.1)
-}
-
-.color-picker-basic-color button.transparent {
-  background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%);
-  background-size: 8px 8px;
-  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
-  background-color: #fff
-}
-
-/* =========================================
-   VIEW MODE TOGGLE & TODO VIEW
-   ========================================= */
-.view-mode-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.sidebar-toggle-btn {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  cursor: pointer;
-  color: #777;
-  transition: all 0.2s;
-}
-
-.sidebar-toggle-btn:hover {
-  background-color: var(--active-bg);
-}
-
-.view-mode-toggle {
-  display: flex;
-  background-color: var(--active-bg);
-  border-radius: 9px;
-  padding: 3px;
-  gap: 2px;
-  border: 1px solid var(--border-color);
-}
-
-.view-mode-btn {
-  padding: 2px 14px;
-  height: 24px;
-  border-radius: 7px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 13px;
-  color: #777;
-  font-weight: 500;
-  transition: all 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.view-mode-btn.active {
-  background-color: var(--module-bg);
-  color: #007aff;
-  /* Apple Blue for Active */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-@media (prefers-color-scheme: dark) {
-  .view-mode-btn.active {
-    color: #0a84ff;
-  }
-}
-
 /* Todo View Style (Apple Reminders Look) */
 .todo-view {
   flex: 1;
   width: 100% !important;
   display: flex !important;
   flex-direction: column !important;
-  padding: 0 0 10px 0 !important;
-  /* Top padding 0 */
-  margin-top: -20px !important;
-  /* Pull view up over empty toolbar space */
-  /* Rely on #root padding */
-  /* Match editor padding */
+  padding: 0 16px 10px 16px !important;
+  /* Reasonable side padding */
+  margin-top: 0 !important;
   animation: fadeInMode 0.3s ease-out;
   box-sizing: border-box !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  /* Ensure no horizontal scrollbar here */
   min-height: 0;
 }
 
@@ -2430,12 +2246,9 @@ textarea {
   font-size: 28px;
   font-weight: 700;
   color: #007aff;
-  margin-top: 0;
-  /* Reset margin, rely on container move */
-  margin-bottom: 20px;
-  /* Add space below header */
-  padding-left: 0;
-  /* Align left with content */
+  margin: 0 !important;
+  padding: 10px 0 20px 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 
@@ -2447,14 +2260,17 @@ textarea {
 
 .todo-row {
   display: flex;
-  align-items: center;
-  /* Center Vertically */
-  padding: 8px 0;
-  /* Remove horizontal padding here, let #root handle it if possible, or keep it if it's meant to be indented */
+  align-items: flex-start !important;
+  /* Align with first line of multiline text */
   border-bottom: 1px solid var(--border-color);
   width: 100%;
   gap: 16px;
   transition: background 0.2s;
+  margin: 0 !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+  /* Internal horizontal padding prevents circle truncation on hover */
+  box-sizing: border-box !important;
 }
 
 .todo-row:hover {
@@ -2478,9 +2294,12 @@ textarea {
   justify-content: center;
   transition: opacity 0.2s, background-color 0.2s;
   margin-left: 8px;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   margin-right: 16px;
+  font-size: 20px;
+  /* Make 'x' more substantial */
+  font-weight: 300;
   /* Prevent scrollbar overlap */
 }
 
@@ -2495,8 +2314,11 @@ textarea {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
-  margin-top: -4px;
-  /* Move checkbox UP even more */
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 5.5px !important;
+  /* Precisely center with first line of 18px text in 27px line-height */
 }
 
 .todo-checkbox {
@@ -2504,12 +2326,16 @@ textarea {
   width: 18px;
   height: 18px;
   border: 1.5px solid #c7c7cc;
-  border-radius: 4px;
-  /* Square look */
+  border-radius: 50%;
+  /* Perfect circle */
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
   background: transparent;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .todo-checkbox:checked {
@@ -2518,16 +2344,13 @@ textarea {
 }
 
 .todo-checkbox:checked::after {
-  content: '';
-  position: absolute;
-  top: 4px;
-  left: 8px;
-  /* Move checkmark right */
-  width: 4px;
-  height: 9px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  content: none;
+}
+
+@keyframes dotPop {
+  to {
+    transform: scale(1);
+  }
 }
 
 .todo-input {
@@ -2540,14 +2363,86 @@ textarea {
   resize: none;
   outline: none;
   font-family: inherit;
-  line-height: 1.2;
-  /* Tighter line height to match checkbox height */
-  /* padding-top removed */
+  line-height: 1.4;
+  /* Slightly more relaxed line height for better centering */
+  display: block;
 }
 
 .todo-row.completed .todo-input {
   color: #8e8e93;
-  text-decoration: line-through;
+  transition: color 0.4s ease;
+  /* line-through handled by animated pseudo-element */
+}
+
+/* Animated Strike-through */
+.todo-input-mirror-container {
+  position: relative;
+}
+
+.todo-row.completed .todo-input-mirror-container {
+  animation: fadeAway 0.5s ease-out forwards;
+}
+
+@keyframes fadeAway {
+  0% {
+    opacity: 1;
+    color: var(--text-color);
+  }
+
+  50% {
+    opacity: 0.5;
+    color: #8e8e93;
+  }
+
+  100% {
+    opacity: 0;
+    color: #8e8e93;
+  }
+}
+
+/* Enhanced Blue Shimmer Sweep for Date Change */
+.todo-meta-info.shimmer {
+  position: relative;
+  overflow: hidden;
+  /* High-vibrancy blue sweep over gray text */
+  background: linear-gradient(to right,
+      #8e8e93 0%,
+      #8e8e93 35%,
+      #007aff 50%,
+      #8e8e93 65%,
+      #8e8e93 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: blueSweep 1.0s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes blueSweep {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* Row Fade-in for new occurrences */
+.todo-row {
+  animation: fadeInRow 0.5s ease-out;
+}
+
+@keyframes fadeInRow {
+  from {
+    opacity: 0.5;
+    transform: translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .todo-empty {
@@ -2565,14 +2460,7 @@ textarea {
   min-height: 0 !important;
 }
 
-/* 强制覆盖注入的 display: flex !important */
-.note-mode-active .todo-view {
-  display: none !important;
-}
-
-.todo-mode-active .editor-container {
-  display: none !important;
-}
+/* animations for active states removed duplication */
 
 /* Add animations for active states */
 .note-mode-active .editor-container {
@@ -2693,22 +2581,14 @@ select:focus,
   padding-top: 2px;
 }
 
-.todo-content-wrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
+/* Conflict removed to ensure single definition */
 
-.todo-row {
-  align-items: flex-start;
-  /* Change from center to handle multi-line */
-}
+/* Conflict removed to ensure centering */
 
 .todo-meta-info {
   font-size: 11px;
   color: #8e8e93;
-  margin-top: 2px;
+  margin-top: 4px;
   line-height: 1.2;
 }
 
@@ -3082,9 +2962,7 @@ select:focus,
    So we MUST use align-items: center. 
 */
 
-.todo-content-wrapper {
-  /* If content wrapper grows, text area handles itself. */
-}
+
 
 .todo-input {
   /* Ensure no huge margins */
@@ -3194,20 +3072,26 @@ select:focus,
 /* Icon Group Container */
 .todo-icon-group {
   display: flex;
-  align-items: center;
+  align-items: flex-start !important;
   gap: 4px;
-  /* Small defined gap */
+  padding-top: 5px !important;
+  /* Match checkbox alignment */
+  margin-left: auto !important;
+  /* Anchor icons to the right side */
 }
 
 /* Ensure delete button size is larger per request */
 .todo-delete-btn {
-  width: 32px !important;
-  /* Larger hit area */
-  height: 32px !important;
-  font-size: 14px;
-  /* Adjust icon size slightly if needed */
+  width: 28px !important;
+  height: 28px !important;
+  font-size: 20px !important;
+  /* Substantial 'x' to match bell icon */
+  font-weight: 300 !important;
   margin: 0 !important;
-  /* Removed margin as container handles gap */
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Ensure reminder button size explicitly matches */
@@ -3233,14 +3117,7 @@ select:focus,
   /* Move icons away from right edge */
 }
 
-/* 2. Content Layout */
-.todo-content-wrapper {
-  /* Ensure flex item can shrink below content size */
-  min-width: 0;
-  flex: 1;
-  /* Ensure it doesn't overflow horizontally */
-  width: 100%;
-}
+/* Conflict removed to ensure single definition */
 
 /* 3. Input Textarea */
 .todo-input {
@@ -3315,28 +3192,14 @@ select:focus,
 }
 
 /* Ensure Row behaves well with growing content */
-.todo-row {
-  display: flex;
-  align-items: flex-start !important;
-  gap: 8px;
-  padding: 8px 12px;
-  min-height: 40px;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  /* Critical: prevent width overflow from padding */
-}
+/* Consolidated into primary todo-row definition */
 
-/* Correct icon alignment for multi-line */
-.todo-checkbox-wrapper,
-.todo-icon-group {
-  padding-top: 4.5px;
-  /* Centering 18px icon in 27px line-height (1.5 * 18px) */
-}
+/* Padding handled in primary wrappers above */
 
 .todo-content-wrapper {
   overflow: visible !important;
   display: flex;
   flex-direction: column;
-  margin-top: -1px;
-  /* Optical shift to move text up per user request */
+  margin-top: 3px;
+  /* Align first line of text with checkbox circles */
 }

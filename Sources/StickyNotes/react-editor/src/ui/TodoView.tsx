@@ -94,7 +94,18 @@ export default function TodoView() {
         }
 
         if (todo.reminder && todo.reminder.repeatType !== 'none') {
-            calculateNextReminderAndReplace(key, todo);
+            // For recurring todos, first show it as completed for feedback, then replace it
+            editor.update(() => {
+                const node = $getNodeByKey(key);
+                if ($isListItemNode(node)) {
+                    node.setChecked(true);
+                }
+            });
+
+            // Delay the replacement so the user sees the sweep animation
+            setTimeout(() => {
+                calculateNextReminderAndReplace(key, todo);
+            }, 800);
         } else {
             deleteNode(key);
         }
@@ -291,6 +302,15 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
 
     // Animation state
     const [isClosing, setIsClosing] = useState(false);
+    const [showShimmer, setShowShimmer] = useState(false);
+
+    useEffect(() => {
+        if (todo.reminder?.time) {
+            setShowShimmer(true);
+            const timer = setTimeout(() => setShowShimmer(false), 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [todo.reminder?.time]);
 
     useEffect(() => {
         registerRef(todo.key, textareaRef.current);
@@ -306,11 +326,18 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
     const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
         if (checked) {
-            setIsClosing(true);
-            setTimeout(() => {
+            const isRecurring = todo.reminder && todo.reminder.repeatType !== 'none';
+            if (isRecurring) {
+                // For recurring todos, don't trigger the closing animation
+                // handleToggle will manage the delay and replacement
                 onToggle(true);
-                setIsClosing(false);
-            }, 300);
+            } else {
+                setIsClosing(true);
+                setTimeout(() => {
+                    onToggle(true);
+                    setIsClosing(false);
+                }, 300);
+            }
         } else {
             onToggle(false);
         }
@@ -361,12 +388,11 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
                 transform: isClosing ? 'scale(0.95)' : 'scale(1)',
                 opacity: isClosing ? 0 : 1,
                 // Transition all layout properties to ensure smooth upward shift
-                transition: 'opacity 0.3s ease-out, transform 0.3s ease-out, height 0.3s ease-out 0.1s, min-height 0.3s ease-out 0.1s, padding 0.3s ease-out 0.1s, margin 0.3s ease-out 0.1s',
+                transition: 'opacity 0.3s ease-out, transform 0.3s ease-out, height 0.3s ease-out 0.1s, min-height 0.3s ease-out 0.1s, padding 0.3s ease-out 0.1s',
                 height: isClosing ? 0 : 'auto',
-                minHeight: isClosing ? 0 : 40,
-                paddingTop: isClosing ? 0 : 8,
-                paddingBottom: isClosing ? 0 : 8,
-                marginBottom: isClosing ? 0 : 8,
+                minHeight: isClosing ? 0 : 32,
+                paddingTop: isClosing ? 0 : 3,
+                paddingBottom: isClosing ? 0 : 6,
                 overflow: 'hidden'
             }}
         >
@@ -411,7 +437,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
                 </div>
 
                 {metaText && (
-                    <div className={`todo-meta-info ${isOverdue ? 'overdue' : ''}`}>
+                    <div className={`todo-meta-info ${isOverdue ? 'overdue' : ''} ${showShimmer ? 'shimmer' : ''}`}>
                         {metaText}
                     </div>
                 )}

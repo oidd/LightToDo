@@ -200,7 +200,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func hideStandardButtons(for window: NSWindow) {
-        // Disabled to allow native traffic lights
+        // Allow native traffic lights
     }
     
     func toggleAppVisibility() {
