@@ -28,6 +28,9 @@ export default function TodoView() {
     const [optimisticIds, setOptimisticIds] = useState<Set<string>>(new Set());
     const pendingTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
+    // Sticky display logic: once an item is shown in a view, keep showing it even if data changes, until view changes
+    const displayedKeys = useRef<Set<string>>(new Set());
+
     const updateTodos = useCallback(() => {
         editor.getEditorState().read(() => {
             const allItems: TodoItem[] = [];
@@ -89,24 +92,52 @@ export default function TodoView() {
             }
 
             // Filter todos based on current mode
-            let filtered: TodoItem[] = [];
-            switch (filterMode) {
-                case 'today':
-                    filtered = allItems.filter(t => !t.checked && t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday);
-                    break;
-                case 'recurring':
-                    filtered = allItems.filter(t => t.reminder && t.reminder.repeatType !== 'none');
-                    break;
-                case 'completed':
-                    filtered = allItems.filter(t => t.checked);
-                    break;
-                case 'all':
-                default:
-                    filtered = allItems.filter(t => !t.checked);
-                    break;
-            }
+            // We implement "sticky" logic: if an item is currently displayed, keep it displayed 
+            // even if it no longer strictly matches the filter (e.g. user changed date), 
+            // until the user switches views.
 
-            setTodos(filtered);
+            const strictMatches = allItems.filter(t => {
+                if (t.checked) {
+                    // Check if it's optimistically kept
+                    return filterMode === 'completed';
+                    // Note: Optimistic checked items are handled by optimisticIds overlay in render, 
+                    // but here we filter raw data. Raw data 'checked' is false for optimistic items usually.
+                    // If raw data is checked, it belongs in completed.
+                }
+
+                switch (filterMode) {
+                    case 'today':
+                        return t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday;
+                    case 'recurring':
+                        return t.reminder && t.reminder.repeatType !== 'none';
+                    case 'completed':
+                        return false; // Should satisfy t.checked check above
+                    case 'all':
+                    default:
+                        return true;
+                }
+            });
+
+            // Update displayed keys with current strict matches
+            strictMatches.forEach(t => displayedKeys.current.add(t.key));
+
+            // Final filter: strict matches OR (was displayed AND still exists)
+            // But we must exclude checked items if mode is not completed (unless optimistic)
+            const finalFiltered = allItems.filter(t => {
+                if (filterMode === 'completed') {
+                    return t.checked;
+                }
+
+                // For non-completed modes:
+                if (t.checked) return false;
+
+                const isStrict = strictMatches.some(m => m.key === t.key);
+                const isSticky = displayedKeys.current.has(t.key);
+
+                return isStrict || isSticky;
+            });
+
+            setTodos(finalFiltered);
         });
     }, [editor, filterMode]);
 
@@ -120,6 +151,8 @@ export default function TodoView() {
     useEffect(() => {
         (window as any).setFilterMode = (mode: string) => {
             setFilterMode(mode);
+            // Clear sticky keys on mode switch
+            displayedKeys.current.clear();
         };
     }, []);
 
@@ -269,12 +302,42 @@ export default function TodoView() {
         });
     };
 
+    const getDefaultReminder = (mode: string): ReminderData | undefined => {
+        const now = Date.now();
+        const oneHourLater = now + 60 * 60 * 1000;
+
+        if (mode === 'today') {
+            return {
+                time: oneHourLater,
+                repeatType: 'none',
+                originalTime: oneHourLater
+            };
+        }
+
+        if (mode === 'recurring') {
+            return {
+                time: oneHourLater,
+                repeatType: 'daily',
+                originalTime: oneHourLater
+            };
+        }
+
+        return undefined;
+    };
+
     const handleEnter = (key: string) => {
         editor.update(() => {
             const node = $getNodeByKey(key);
             if ($isListItemNode(node)) {
                 const newNode = $createListItemNode();
                 newNode.setChecked(false);
+
+                // Apply default reminder based on current view
+                const defaultReminder = getDefaultReminder(filterMode);
+                if (defaultReminder) {
+                    newNode.append($createReminderNode(defaultReminder));
+                }
+
                 node.insertAfter(newNode);
                 pendingFocusKey.current = newNode.getKey();
             }
@@ -290,6 +353,13 @@ export default function TodoView() {
             const root = $getRoot();
             const listNode = $createListNode('check');
             const listItem = $createListItemNode();
+
+            // Apply default reminder based on current view
+            const defaultReminder = getDefaultReminder(filterMode);
+            if (defaultReminder) {
+                listItem.append($createReminderNode(defaultReminder));
+            }
+
             listNode.append(listItem);
             root.append(listNode);
             pendingFocusKey.current = listItem.getKey();
@@ -335,10 +405,19 @@ export default function TodoView() {
 
     const isCompletedMode = filterMode === 'completed';
 
+    const headerConfig: Record<string, { text: string; color: string }> = {
+        all: { text: '待办事项', color: '#007aff' }, // Keep default blue
+        today: { text: '今天', color: '#ff8d30' },
+        recurring: { text: '周期', color: '#ff3b30' },
+        completed: { text: '完成', color: '#8e8e93' }
+    };
+
+    const currentHeader = headerConfig[filterMode] || headerConfig['all'];
+
     return (
         <div className={`todo-view ${filterMode}-mode`}>
-            <div className="todo-header" style={{ color: isCompletedMode ? '#8e8e93' : '#007aff' }}>
-                {isCompletedMode ? '完成' : '待办事项'}
+            <div className="todo-header" style={{ color: currentHeader.color }}>
+                {currentHeader.text}
             </div>
             <div className="todo-list">
                 {todos.map(todo => (
