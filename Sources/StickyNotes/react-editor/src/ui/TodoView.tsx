@@ -470,7 +470,16 @@ export default function TodoView() {
                         点击空白处添加待办事项
                     </div>
                 ) : filterMode !== 'completed' && (
-                    <div className="todo-fill-area" onClick={() => handleEnter(todos[todos.length - 1].key)}>
+                    <div className="todo-fill-area" onClick={() => {
+                        const lastItem = todos[todos.length - 1];
+                        if (lastItem && lastItem.text === "") {
+                            // 如果最后一项是空的，点击空白处则删除它（取消新增）
+                            handleDelete(lastItem.key);
+                        } else {
+                            // 否则正常新增
+                            handleEnter(todos[todos.length - 1].key);
+                        }
+                    }}>
                         {/* Invisible clickable area */}
                     </div>
                 )}
@@ -554,7 +563,16 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            onEnter(todo.key);
+            if (todo.checked || isCompletedMode) {
+                // 已完成项目或在完成视图中，禁止回车新增逻辑
+                return;
+            }
+            if (localText === '') {
+                // 如果用户没有输入就直接回车，则该空白待办消失（取消新增）
+                onDelete(todo.key);
+            } else {
+                onEnter(todo.key);
+            }
         } else if (e.key === 'Backspace' && localText === '') {
             e.preventDefault();
             onDelete(todo.key);
@@ -607,7 +625,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
             <div className="todo-checkbox-wrapper">
                 <input
                     type="checkbox"
-                    className="todo-checkbox"
+                    className={`todo-checkbox ${(!localText && !todo.checked) ? 'draft' : ''}`}
                     checked={todo.checked}
                     onChange={handleCheckboxChange}
                 />
@@ -641,6 +659,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
                         rows={1}
                         placeholder="输入待办事项"
                         spellCheck={false}
+                        readOnly={todo.checked || isCompletedMode}
                     />
                 </div>
 

@@ -2373,6 +2373,11 @@ textarea {
   justify-content: center;
 }
 
+.todo-checkbox.draft {
+  border-style: dashed;
+  border-color: #c7c7cc;
+}
+
 .todo-checkbox:checked {
   background-color: #007aff;
   border-color: #007aff;
