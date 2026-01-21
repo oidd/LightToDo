@@ -36,6 +36,7 @@ import ShortcutsPlugin from './plugins/ShortcutsPlugin';
 import { useState, useEffect } from 'react';
 import TodoView from './ui/TodoView';
 import { ExtendedTextNode } from './nodes/ExtendedTextNode';
+import { ReminderNode } from './nodes/ReminderNode';
 
 export type ViewMode = 'note' | 'todo';
 
@@ -181,6 +182,7 @@ export default function App() {
         nodes: [
             ...PlaygroundNodes,
             ExtendedTextNode,
+            ReminderNode,
         ],
         onError: (error: Error) => { console.error(error); },
         theme: PlaygroundEditorTheme,

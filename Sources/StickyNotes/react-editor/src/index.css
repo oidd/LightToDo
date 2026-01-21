@@ -2647,3 +2647,661 @@ select:focus,
      Let's assume they are handled correctly elsewhere since user didn't complain about dropdown icon color, 
      just that menu background was white. */
 }
+
+/* Todo Reminder Styles */
+.todo-row .reminder-btn {
+  opacity: 0;
+  cursor: pointer;
+  margin-right: 8px;
+  color: #8e8e93;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.todo-row .reminder-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.todo-row:hover .reminder-btn {
+  opacity: 1;
+}
+
+.todo-row.has-reminder .reminder-btn {
+  opacity: 1;
+  color: #007aff;
+}
+
+.todo-checkbox-wrapper {
+  /* Align checkbox properly */
+  display: flex;
+  align-items: flex-start;
+  padding-top: 2px;
+}
+
+.todo-content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.todo-row {
+  align-items: flex-start;
+  /* Change from center to handle multi-line */
+}
+
+.todo-meta-info {
+  font-size: 11px;
+  color: #8e8e93;
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+.todo-meta-info.overdue {
+  color: #ff3b30;
+}
+
+/* Reminder Dialog */
+.reminder-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.reminder-dialog {
+  background: #fff;
+  width: 320px;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: 13px;
+  animation: dialog-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes dialog-pop {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Dark Mode support for dialog */
+@media (prefers-color-scheme: dark) {
+  .reminder-dialog {
+    background: #1e1e1e;
+    color: white;
+    border: 1px solid #333;
+  }
+}
+
+.reminder-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reminder-dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #8e8e93;
+  padding: 0;
+  line-height: 1;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #8e8e93;
+}
+
+.datetime-inputs {
+  display: flex;
+  gap: 10px;
+}
+
+.reminder-dialog input,
+.reminder-dialog select {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #e5e5ea;
+  background: #f2f2f7;
+  color: inherit;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.datetime-inputs input {
+  width: 50%;
+}
+
+@media (prefers-color-scheme: dark) {
+
+  .reminder-dialog input,
+  .reminder-dialog select {
+    background: #2c2c2e;
+    border-color: #3a3a3c;
+  }
+}
+
+.datetime-preview {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #007aff;
+  height: 14px;
+  font-weight: 500;
+}
+
+.reminder-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.reminder-dialog-footer button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-cancel {
+  background: #f2f2f7;
+  color: #000;
+}
+
+.btn-save {
+  background: #007aff;
+  color: white;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-cancel {
+    background: #3a3a3c;
+    color: white;
+  }
+}
+
+/* Radio Group */
+.radio-group {
+  display: flex;
+  gap: 15px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.radio-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Updated Reminder Dialog Styles */
+
+/* Bold and larger labels */
+.dialog-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dialog-label {
+    color: #fff;
+  }
+}
+
+/* Input layout - Date long, Time short */
+.datetime-inputs {
+  display: flex;
+  gap: 12px;
+}
+
+.date-input {
+  flex: 2;
+  /* Takes up more space */
+  height: 38px;
+}
+
+.time-input {
+  flex: 1;
+  /* Takes up less space */
+  height: 38px;
+}
+
+/* Make select match input height */
+.reminder-dialog select {
+  height: 38px;
+  padding: 0 8px;
+  /* Reset padding to match */
+}
+
+/* Remove Button */
+.btn-remove {
+  background-color: #ffe5e5;
+  color: #ff3b30;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-right: auto;
+  /* Push to left */
+}
+
+.btn-remove:hover {
+  background-color: #ffd1d1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-remove {
+    background-color: rgba(255, 69, 58, 0.2);
+    color: #ff453a;
+  }
+
+  .btn-remove:hover {
+    background-color: rgba(255, 69, 58, 0.3);
+  }
+}
+
+/* Adjust footer to align items */
+.reminder-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  /* Default right align */
+  gap: 10px;
+  margin-top: 20px;
+  align-items: center;
+}
+
+
+/* Updated Reminder Dialog Styles - Part 2 */
+
+.form-group {
+  margin-bottom: 24px;
+  /* Increased spacing between sections */
+}
+
+/* Flex header for label and preview */
+.form-header {
+  display: flex;
+  align-items: center;
+  /* Align vertically */
+  gap: 8px;
+  /* Spacing between label and preview */
+  margin-bottom: 10px;
+}
+
+/* Reset margin on label since header handles spacing */
+.form-header .dialog-label {
+  margin-bottom: 0;
+}
+
+/* Style the preview text */
+.datetime-preview {
+  font-size: 13px;
+  color: #007aff;
+  font-weight: 500;
+}
+
+
+/* Updated Reminder Dialog Styles - Part 3 */
+
+/* Force labels to be pure black per request */
+.dialog-label {
+  color: #000 !important;
+}
+
+/* Ensure header alignment using baseline */
+.form-header {
+  display: flex;
+  align-items: baseline;
+  /* Align text baselines */
+  line-height: 1;
+}
+
+/* Remove previous height hacks to let baseline work */
+.form-header .dialog-label {
+  /* Resetting previous specific styles if any */
+  height: auto;
+  line-height: normal;
+}
+
+/* Spacing and visual alignment */
+.datetime-preview {
+  margin-left: 12px;
+  font-size: 13px;
+  color: #007aff;
+  font-weight: 500;
+  /* Optional: nudge if font metrics are wild, but baseline usually works */
+}
+
+
+/* Todo UI Refinements */
+
+/* 1. Round Checkbox */
+.todo-checkbox {
+  border-radius: 50% !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid #ccc;
+  background-color: transparent;
+  cursor: pointer;
+  margin-right: 8px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.todo-checkbox:checked {
+  background-color: #007aff;
+  border-color: #007aff;
+}
+
+.todo-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 8px;
+  /* Basic checkmark using SVG or clip path if needed, but CSS shapes are tricky without assets. 
+       Let's use a simple unicode or just colors for now, usually browser default is okay but we reset 'appearance: none'. 
+       So we need a checkmark. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='1 7 4 10 12 1'%3E%3C/polyline%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* 2. Alignment */
+/* Ensure the delete button is vertically centered in the row, regardless of text height */
+.todo-row {
+  align-items: center;
+  /* This centers all children vertically by default */
+}
+
+/* But we said previously we used flex-start for multi-line. 
+   If text is multi-line, checkbox and icons are weird.
+   User wants icons centered for single line, maybe top-aligned for multi? 
+   No, user specifically asked 'delete icon is whole row center aligned'. 
+   So we MUST use align-items: center. 
+*/
+
+.todo-content-wrapper {
+  /* If content wrapper grows, text area handles itself. */
+}
+
+.todo-input {
+  /* Ensure no huge margins */
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  /* Adjust padding to align text with icons */
+
+}
+
+/* 3. Hover Effects */
+.todo-delete-btn {
+  /* Ensure existing styles are correct */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #8e8e93;
+  opacity: 0;
+  /* Hidden by default per design */
+  transition: opacity 0.2s, background-color 0.2s, color 0.2s;
+  margin-left: 4px;
+}
+
+.todo-row:hover .todo-delete-btn {
+  opacity: 1;
+}
+
+.todo-delete-btn:hover {
+  background-color: rgba(255, 59, 48, 0.1);
+  /* Pale Red */
+  color: #ff3b30;
+  /* Red */
+}
+
+/* Bell / Reminder Button */
+.reminder-btn {
+  display: flex;
+  /* Ensure centering */
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  /* Slightly squircle */
+  transition: opacity 0.2s, background-color 0.2s, color 0.2s;
+}
+
+.reminder-btn:hover {
+  background-color: rgba(0, 122, 255, 0.1) !important;
+  /* Pale Blue */
+  color: #007aff !important;
+  /* Blue */
+}
+
+/* 4. Animation fix */
+/* We will handle animation logic via class names in next step if needed, or override here. */
+/* The current animation is inline style in React. We need to go into TodoView.tsx to change the transition type. */
+
+
+/* Todo Icon Refinements */
+
+/* Ensure delete button size explicitly matches */
+.todo-delete-btn {
+  width: 24px !important;
+  height: 24px !important;
+  margin-left: 2px !important;
+  /* Reduce spacing */
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Ensure reminder button size explicitly matches */
+.reminder-btn {
+  width: 24px !important;
+  height: 24px !important;
+  margin-left: 0 !important;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Container for icons to control spacing tightly */
+.todo-row .icon-group {
+  display: flex;
+  align-items: center;
+  gap: 0px;
+  /* Tighter gap */
+}
+
+/* Visual fix for exact hover box matching */
+.todo-delete-btn:hover,
+.reminder-btn:hover {
+  border-radius: 4px;
+}
+
+
+/* Todo Icon Refinements - Final */
+
+/* Icon Group Container */
+.todo-icon-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  /* Small defined gap */
+}
+
+/* Ensure delete button size is larger per request */
+.todo-delete-btn {
+  width: 32px !important;
+  /* Larger hit area */
+  height: 32px !important;
+  font-size: 14px;
+  /* Adjust icon size slightly if needed */
+  margin: 0 !important;
+  /* Removed margin as container handles gap */
+}
+
+/* Ensure reminder button size explicitly matches */
+.reminder-btn {
+  width: 32px !important;
+  height: 32px !important;
+  margin: 0 !important;
+}
+
+/* Hover background radius */
+.todo-delete-btn:hover,
+.reminder-btn:hover {
+  border-radius: 6px;
+  /* Slightly larger radius for larger box */
+}
+
+
+/* Layout & Responsiveness Refinements */
+
+/* 1. Icon Position */
+.todo-icon-group {
+  margin-right: 8px !important;
+  /* Move icons away from right edge */
+}
+
+/* 2. Content Layout */
+.todo-content-wrapper {
+  /* Ensure flex item can shrink below content size */
+  min-width: 0;
+  flex: 1;
+  /* Ensure it doesn't overflow horizontally */
+  width: 100%;
+}
+
+/* 3. Input Textarea */
+.todo-input {
+  resize: none;
+  /* User cannot drag resize */
+  overflow: hidden;
+  /* Hide scrollbar completely */
+  min-height: 24px;
+  height: auto;
+  /* Allow auto-growth script to work */
+  width: 100%;
+  box-sizing: border-box;
+  /* Ensure wrapping */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Hide scrollbar explicitly for WebKit */
+.todo-input::-webkit-scrollbar {
+  display: none;
+}
+
+/* 4. Meta Info Truncation */
+.todo-meta-info {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  display: block;
+  /* Ensure block behavior for width */
+  max-width: 100%;
+}
+
+
+/* Todo Textarea Fixes */
+
+.todo-row {
+  /* Ensure no fixed height */
+  height: auto !important;
+  min-height: 40px;
+  /* Base height */
+  /* Remove padding that might create "white space" if content doesn't fill it */
+  padding-top: 8px;
+  padding-bottom: 8px;
+  /* Ensure items align top but content fills */
+  align-items: flex-start !important;
+}
+
+.todo-content-wrapper {
+  /* Remove overflow hidden which might clip content */
+  overflow: visible !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* Determine vertical alignment */
+}
+
+.todo-input {
+  /* Reset margins/paddings */
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.5;
+  /* Ensure it fills width */
+  width: 100% !important;
+  /* Ensure box-sizing */
+  box-sizing: border-box;
+  /* Remove weird background */
+  background: transparent;
+}
+
+/* Ensure checkbox aligns with the first line of text */
+.todo-checkbox-wrapper {
+  padding-top: 4px;
+  /* Adjust based on line-height to center optically */
+}
