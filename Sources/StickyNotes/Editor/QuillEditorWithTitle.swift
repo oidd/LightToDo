@@ -319,9 +319,10 @@ struct QuillEditorWithTitle: NSViewRepresentable {
 // MARK: - 简化版 QuillEditor（不包含标题，标题由 SwiftUI 处理）
 struct QuillEditor: NSViewRepresentable {
     @Binding var content: String
+    @Binding var filterMode: String
     var isWindowActive: Bool = true
-    var currentMode: String = "note"
     var onContentUpdate: () -> Void
+    var onCountsUpdate: ([String: Int]) -> Void
     var onReady: () -> Void
     var onNewNote: (() -> Void)? = nil
     
@@ -372,9 +373,9 @@ struct QuillEditor: NSViewRepresentable {
         }
 
         // 检查模式变化
-        if currentMode != context.coordinator.lastLoadedMode && context.coordinator.isReady {
-             nsView.evaluateJavaScript("window.setMode('\(currentMode)')") { _, _ in }
-             context.coordinator.lastLoadedMode = currentMode
+        if filterMode != context.coordinator.lastLoadedFilterMode && context.coordinator.isReady {
+             nsView.evaluateJavaScript("window.setFilterMode('\(filterMode)')") { _, _ in }
+             context.coordinator.lastLoadedFilterMode = filterMode
         }
     }
     
@@ -388,7 +389,7 @@ struct QuillEditor: NSViewRepresentable {
         var lastLoadedContent: String = ""
         var isReady: Bool = false
         var lastIsWindowActive: Bool = true
-        var lastLoadedMode: String = "note"
+        var lastLoadedFilterMode: String = "all"
         
         init(_ parent: QuillEditor) {
             self.parent = parent
@@ -412,9 +413,9 @@ struct QuillEditor: NSViewRepresentable {
                 webView?.evaluateJavaScript("window.setWindowActive(\(parent.isWindowActive))") { _, _ in }
                 lastIsWindowActive = parent.isWindowActive
 
-                // 初始化模式
-                webView?.evaluateJavaScript("window.setMode('\(parent.currentMode)')") { _, _ in }
-                lastLoadedMode = parent.currentMode
+                // 初始化过滤模式
+                webView?.evaluateJavaScript("window.setFilterMode('\(parent.filterMode)')") { _, _ in }
+                lastLoadedFilterMode = parent.filterMode
 
                 
                 // 初始化内容
@@ -436,6 +437,24 @@ struct QuillEditor: NSViewRepresentable {
                         self.lastLoadedContent = html
                         self.parent.content = html
                         self.parent.onContentUpdate()
+                    }
+                }
+            
+            case "counts":
+                if let countsDict = data["data"] as? [String: Any] {
+                    var counts: [String: Int] = [:]
+                    for (key, value) in countsDict {
+                        if let val = value as? Int {
+                            counts[key] = val
+                        } else if let val = value as? Double {
+                            counts[key] = Int(val)
+                        } else if let val = value as? NSNumber {
+                            counts[key] = val.intValue
+                        }
+                    }
+                    
+                    DispatchQueue.main.async {
+                        self.parent.onCountsUpdate(counts)
                     }
                 }
                 

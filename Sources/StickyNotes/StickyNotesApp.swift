@@ -35,6 +35,7 @@ struct StickyNotesApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var windowController: EdgeSnapWindowController?
     var mainWindow: NSWindow?
+    var notesManager: NotesManager!
     
     // Global shortcut monitoring
     var globalMonitor: Any?

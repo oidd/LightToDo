@@ -3,6 +3,26 @@ import Combine
 
 class NotesManager: ObservableObject {
     @Published var notes: [Note] = []
+    
+    enum FilterMode: String, CaseIterable {
+        case all = "all"
+        case today = "today"
+        case recurring = "recurring"
+        case completed = "completed"
+        
+        var title: String {
+            switch self {
+            case .all: return "全部"
+            case .today: return "今天"
+            case .recurring: return "周期"
+            case .completed: return "完成"
+            }
+        }
+    }
+    
+    @Published var currentFilter: FilterMode = .all
+    @Published var todoCounts: [String: Int] = ["all": 0, "today": 0, "recurring": 0, "completed": 0]
+    
     @Published var selectedNoteId: UUID?  // 当前活跃笔记（编辑器显示的）
     @Published var selectedNoteIds: Set<UUID> = []  // 多选集合
     @Published var isSidebarFocused: Bool = true  // 追踪侧边栏是否拥有焦点
@@ -204,7 +224,11 @@ class NotesManager: ObservableObject {
     // MARK: - Selected Note
     
     var selectedNote: Note? {
-        guard let id = selectedNoteId else { return nil }
-        return notes.first { $0.id == id }
+        // 在新版逻辑中，由于只有一个待办笔记，我们始终返回这个笔记。
+        // 如果以后有多个笔记，可以根据 selectedNoteId 返回。
+        if let id = selectedNoteId {
+            return notes.first { $0.id == id }
+        }
+        return notes.first
     }
 }

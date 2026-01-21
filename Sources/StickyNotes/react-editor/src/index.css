@@ -3191,6 +3191,19 @@ select:focus,
   pointer-events: none;
 }
 
+/* --- Completed Mode Gray Styles --- */
+.todo-view.completed-mode .todo-input {
+  color: #999 !important;
+}
+
+.todo-view.completed-mode .todo-meta-info {
+  color: #ccc !important;
+}
+
+.todo-view.completed-mode .todo-checkbox {
+  opacity: 0.5;
+}
+
 /* Ensure Row behaves well with growing content */
 /* Consolidated into primary todo-row definition */
 

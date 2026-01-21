@@ -16,10 +16,16 @@ struct EditorView: View {
                 // Quill 富文本编辑器（仅正文）
                 QuillEditor(
                     content: $content,
+                    filterMode: Binding(
+                        get: { notesManager.currentFilter.rawValue },
+                        set: { if let mode = NotesManager.FilterMode(rawValue: $0) { notesManager.currentFilter = mode } }
+                    ),
                     isWindowActive: controlActiveState == .key,
-                    currentMode: editorMode,
                     onContentUpdate: {
                         saveContent()
+                    },
+                    onCountsUpdate: { counts in
+                        notesManager.todoCounts = counts
                     },
                     onReady: {
                         editorReady = true

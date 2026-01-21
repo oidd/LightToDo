@@ -15,6 +15,7 @@ interface TodoItem {
 export default function TodoView() {
     const [editor] = useLexicalComposerContext();
     const [todos, setTodos] = useState<TodoItem[]>([]);
+    const [filterMode, setFilterMode] = useState<string>('all');
     const pendingFocusKey = useRef<string | null>(null);
     const itemRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
@@ -25,19 +26,18 @@ export default function TodoView() {
 
     const updateTodos = useCallback(() => {
         editor.getEditorState().read(() => {
-            const newTodos: TodoItem[] = [];
+            const allItems: TodoItem[] = [];
             const root = $getRoot();
 
-            const walk = (node: LexicalNode) => {
+            function walkTree(node: LexicalNode) {
+                // Check if it's a list item in a checklist
                 if ($isListItemNode(node)) {
                     const parent = node.getParent();
                     if ($isListNode(parent) && parent.getListType() === 'check') {
-                        // Extract text and reminder
                         let text = "";
                         let reminder: ReminderData | undefined = undefined;
 
-                        const children = node.getChildren();
-                        children.forEach(child => {
+                        node.getChildren().forEach(child => {
                             if ($isReminderNode(child)) {
                                 reminder = child.getData();
                             } else {
@@ -45,7 +45,7 @@ export default function TodoView() {
                             }
                         });
 
-                        newTodos.push({
+                        allItems.push({
                             key: node.getKey(),
                             text: text,
                             checked: node.getChecked() || false,
@@ -54,15 +54,57 @@ export default function TodoView() {
                     }
                 }
 
+                // Recursively walk through all children of any type
                 if ('getChildren' in node && typeof (node as any).getChildren === 'function') {
-                    (node as any).getChildren().forEach(walk);
+                    (node as any).getChildren().forEach(walkTree);
                 }
+            }
+
+            walkTree(root);
+
+            // Calculate counts for all modes
+            const now = new Date();
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+            const endOfToday = startOfToday + 24 * 60 * 60 * 1000;
+
+            const counts = {
+                all: allItems.filter(t => !t.checked).length,
+                today: allItems.filter(t => !t.checked && t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday).length,
+                recurring: allItems.filter(t => t.reminder && t.reminder.repeatType !== 'none').length,
+                completed: allItems.filter(t => t.checked).length
             };
 
-            root.getChildren().forEach(walk);
-            setTodos(newTodos);
+            console.log('📊 Total Items Found:', allItems.length);
+            console.log('📊 Generated Counts:', counts);
+
+            // Send counts back to Swift
+            if (window.webkit?.messageHandlers?.editor) {
+                window.webkit.messageHandlers.editor.postMessage({ type: 'counts', data: counts });
+            } else {
+                console.warn('⚠️ window.webkit.messageHandlers.editor NOT FOUND');
+            }
+
+            // Filter todos based on current mode
+            let filtered: TodoItem[] = [];
+            switch (filterMode) {
+                case 'today':
+                    filtered = allItems.filter(t => !t.checked && t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday);
+                    break;
+                case 'recurring':
+                    filtered = allItems.filter(t => t.reminder && t.reminder.repeatType !== 'none');
+                    break;
+                case 'completed':
+                    filtered = allItems.filter(t => t.checked);
+                    break;
+                case 'all':
+                default:
+                    filtered = allItems.filter(t => !t.checked);
+                    break;
+            }
+
+            setTodos(filtered);
         });
-    }, [editor]);
+    }, [editor, filterMode]);
 
     useEffect(() => {
         updateTodos();
@@ -70,6 +112,12 @@ export default function TodoView() {
             updateTodos();
         });
     }, [editor, updateTodos]);
+
+    useEffect(() => {
+        (window as any).setFilterMode = (mode: string) => {
+            setFilterMode(mode);
+        };
+    }, []);
 
     useEffect(() => {
         if (pendingFocusKey.current) {
@@ -107,7 +155,14 @@ export default function TodoView() {
                 calculateNextReminderAndReplace(key, todo);
             }, 800);
         } else {
-            deleteNode(key);
+            // For normal todos, just mark as checked.
+            // It will be filtered out from "all/today" and appear in "completed" automatically.
+            editor.update(() => {
+                const node = $getNodeByKey(key);
+                if ($isListItemNode(node)) {
+                    node.setChecked(true);
+                }
+            });
         }
     };
 
@@ -241,7 +296,7 @@ export default function TodoView() {
     }, []);
 
     return (
-        <div className="todo-view">
+        <div className={`todo-view ${filterMode}-mode`}>
             <div className="todo-header">待办事项</div>
             <div className="todo-list">
                 {todos.map(todo => (

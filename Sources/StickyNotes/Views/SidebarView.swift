@@ -166,11 +166,210 @@ struct SidebarView: View {
     @Binding var isCollapsed: Bool
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Empty space
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Top Row: All (Large Wide Button)
+                StatButton(
+                    mode: .all,
+                    title: "全部待办事项",
+                    iconName: "全部",
+                    count: notesManager.todoCounts["all"] ?? 0,
+                    color: Color(hex: "#087aff"),
+                    isWide: true,
+                    isSelected: notesManager.currentFilter == .all
+                ) {
+                    notesManager.currentFilter = .all
+                }
+                
+                // Middle Row: Today & Recurring
+                HStack(spacing: 12) {
+                    StatButton(
+                        mode: .today,
+                        title: "今天",
+                        iconName: "今天",
+                        count: notesManager.todoCounts["today"] ?? 0,
+                        color: Color(hex: "#ff8d30"),
+                        isWide: false,
+                        isSelected: notesManager.currentFilter == .today
+                    ) {
+                        notesManager.currentFilter = .today
+                    }
+                    
+                    StatButton(
+                        mode: .recurring,
+                        title: "周期",
+                        iconName: "计划",
+                        count: notesManager.todoCounts["recurring"] ?? 0,
+                        color: Color(hex: "#ff3b30"),
+                        isWide: false,
+                        isSelected: notesManager.currentFilter == .recurring
+                    ) {
+                        notesManager.currentFilter = .recurring
+                    }
+                }
+                
+                // Bottom Row: Completed
+                HStack(spacing: 12) {
+                    StatButton(
+                        mode: .completed,
+                        title: "完成",
+                        iconName: "完成",
+                        count: notesManager.todoCounts["completed"] ?? 0,
+                        color: Color(hex: "#8e8e93"),
+                        isWide: false,
+                        isSelected: notesManager.currentFilter == .completed
+                    ) {
+                        notesManager.currentFilter = .completed
+                    }
+                    
+                    Spacer()
+                }
+            }
+            .padding(.horizontal, 15)
+            .padding(.top, 45)
+            
             Spacer()
         }
         .frame(width: 210)
+    }
+}
+
+// MARK: - Components
+
+struct StatButton: View {
+    let mode: NotesManager.FilterMode
+    let title: String
+    let iconName: String
+    let count: Int
+    let color: Color
+    let isWide: Bool
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .center) { // Center icons with numbers
+                    // Top Left: Icon
+                    if mode == .today {
+                        TodayIconView(iconName: iconName)
+                    } else if let nsImage = loadSVG(named: iconName) {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .renderingMode(.template) 
+                            .aspectRatio(contentMode: .fit)
+                            .frame(
+                                width: (mode == .recurring) ? 22 : 28,
+                                height: (mode == .recurring) ? 22 : 28
+                            )
+                            .foregroundColor(.white)
+                            .offset(y: 1.5) // Move DOWN to align with number baseline
+                    }
+                    
+                    Spacer()
+                    
+                    // Top Right: Count
+                    Text("\(count)")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                .padding(.top, 10)
+                .padding(.horizontal, 10)
+                
+                Spacer()
+                
+                // Bottom Left: Title
+                Text(title)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
+                    .opacity(0.9)
+                    .padding(.bottom, 8)
+                    .padding(.horizontal, 10)
+            }
+            .frame(width: isWide ? 190 : 89, height: 68)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(color)
+                    
+                    // Subtle Gradient Overlay (Top-Left to Bottom-Right)
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color.white.opacity(0.15), Color.clear]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+                .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(isSelected ? 0.3 : 0), lineWidth: 1.5)
+            )
+            .animation(.spring(response: 0.25), value: isSelected)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct TodayIconView: View {
+    let iconName: String
+    
+    var body: some View {
+        ZStack {
+            if let nsImage = loadSVG(named: iconName) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .renderingMode(.template)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 22, height: 22) // Smaller for Today to match Recurring
+                    .foregroundColor(.white)
+            }
+            
+            // Dynamic Day Number
+            Text("\(Calendar.current.component(.day, from: Date()))")
+                .font(.system(size: 9, weight: .bold)) // Slightly smaller font for smaller icon
+                .foregroundColor(.white)
+                .offset(y: 2)
+        }
+        .offset(y: 1.5) // Match other icons' vertical alignment
+    }
+}
+
+// 辅助函数：从 Bundle.module 加载 SVG 为 NSImage
+func loadSVG(named name: String) -> NSImage? {
+    // 尝试在 Resources 目录下查找 .svg 文件
+    if let url = Bundle.module.url(forResource: name, withExtension: "svg") {
+        return NSImage(contentsOf: url)
+    }
+    return nil
+}
+
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
     }
 }
 
