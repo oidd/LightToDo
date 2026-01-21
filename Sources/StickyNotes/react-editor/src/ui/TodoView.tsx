@@ -646,13 +646,17 @@ export default function TodoView() {
                     </div>
                 ) : filterMode !== 'completed' && (
                     <div className="todo-fill-area" onClick={() => {
-                        const lastItem = todos[todos.length - 1];
-                        if (lastItem && lastItem.text === "") {
-                            // 如果最后一项是空的，点击空白处则删除它（取消新增）
-                            handleDelete(lastItem.key);
-                        } else {
-                            // 否则正常新增
+                        // 查找任意空白草稿（解决排序导致草稿不在末尾的问题）
+                        const emptyDraft = todos.find(t => t.text === "");
+                        if (emptyDraft) {
+                            // 如果存在空白草稿，删除它（取消新增）
+                            handleDelete(emptyDraft.key);
+                        } else if (todos.length > 0) {
+                            // 否则在最后一项后面新增
                             handleEnter(todos[todos.length - 1].key);
+                        } else {
+                            // 列表为空时创建第一个
+                            handleCreateFirst();
                         }
                     }}>
                         {/* Invisible clickable area */}
