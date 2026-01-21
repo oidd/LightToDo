@@ -20,6 +20,10 @@ export interface ReminderData {
   originalTime: number;
   autoRefreshedAt?: number; // Timestamp when this was auto-created
   completedAt?: number; // Timestamp when task was completed
+  priority: 'none' | 'low' | 'medium' | 'high';
+  hasReminder: boolean;
+  hasDate: boolean;
+  hasTime: boolean;
 }
 
 export type SerializedReminderNode = Spread<

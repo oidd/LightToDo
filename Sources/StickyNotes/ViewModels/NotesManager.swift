@@ -8,6 +8,7 @@ class NotesManager: ObservableObject {
         case all = "all"
         case today = "today"
         case recurring = "recurring"
+        case important = "important"
         case completed = "completed"
         
         var title: String {
@@ -15,13 +16,14 @@ class NotesManager: ObservableObject {
             case .all: return "全部"
             case .today: return "今天"
             case .recurring: return "周期"
+            case .important: return "重要"
             case .completed: return "完成"
             }
         }
     }
     
     @Published var currentFilter: FilterMode = .all
-    @Published var todoCounts: [String: Int] = ["all": 0, "today": 0, "recurring": 0, "completed": 0]
+    @Published var todoCounts: [String: Int] = ["all": 0, "today": 0, "recurring": 0, "important": 0, "completed": 0]
     
     @Published var selectedNoteId: UUID?  // 当前活跃笔记（编辑器显示的）
     @Published var selectedNoteIds: Set<UUID> = []  // 多选集合

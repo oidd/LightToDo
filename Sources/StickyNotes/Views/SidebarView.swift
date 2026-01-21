@@ -174,21 +174,21 @@ struct SidebarView: View {
                     title: "全部待办事项",
                     iconName: "全部",
                     count: notesManager.todoCounts["all"] ?? 0,
-                    color: Color(hex: "#087aff"),
+                    color: Color(hex: "#087aff"), // Original Blue
                     isWide: true,
                     isSelected: notesManager.currentFilter == .all
                 ) {
                     notesManager.currentFilter = .all
                 }
                 
-                // Middle Row: Today & Recurring
+                // Middle Row: Today & Important
                 HStack(spacing: 12) {
                     StatButton(
                         mode: .today,
                         title: "今天",
                         iconName: "今天",
                         count: notesManager.todoCounts["today"] ?? 0,
-                        color: Color(hex: "#ff8d30"),
+                        color: Color(hex: "#08bcff"), // New Blue
                         isWide: false,
                         isSelected: notesManager.currentFilter == .today
                     ) {
@@ -196,33 +196,43 @@ struct SidebarView: View {
                     }
                     
                     StatButton(
+                        mode: .important,
+                        title: "重要",
+                        iconName: "重要",
+                        count: notesManager.todoCounts["important"] ?? 0,
+                        color: Color(hex: "#ff8d30"), // Orange
+                        isWide: false,
+                        isSelected: notesManager.currentFilter == .important
+                    ) {
+                        notesManager.currentFilter = .important
+                    }
+                }
+                
+                // Bottom Row: Recurring & Completed
+                HStack(spacing: 12) {
+                    StatButton(
                         mode: .recurring,
                         title: "周期",
-                        iconName: "计划",
+                        iconName: "周期",
                         count: notesManager.todoCounts["recurring"] ?? 0,
-                        color: Color(hex: "#ff3b30"),
+                        color: Color(hex: "#ff3b30"), // Red
                         isWide: false,
                         isSelected: notesManager.currentFilter == .recurring
                     ) {
                         notesManager.currentFilter = .recurring
                     }
-                }
-                
-                // Bottom Row: Completed
-                HStack(spacing: 12) {
+                    
                     StatButton(
                         mode: .completed,
                         title: "完成",
                         iconName: "完成",
                         count: notesManager.todoCounts["completed"] ?? 0,
-                        color: Color(hex: "#8e8e93"),
+                        color: Color(hex: "#8e8e93"), // Gray
                         isWide: false,
                         isSelected: notesManager.currentFilter == .completed
                     ) {
                         notesManager.currentFilter = .completed
                     }
-                    
-                    Spacer()
                 }
             }
             .padding(.horizontal, 15)
@@ -259,8 +269,8 @@ struct StatButton: View {
                             .renderingMode(.template) 
                             .aspectRatio(contentMode: .fit)
                             .frame(
-                                width: (mode == .recurring) ? 22 : 28,
-                                height: (mode == .recurring) ? 22 : 28
+                                width: (mode == .recurring || mode == .important || mode == .today) ? 22 : 28,
+                                height: (mode == .recurring || mode == .important || mode == .today) ? 22 : 28
                             )
                             .foregroundColor(.white)
                             .offset(y: 1.5) // Move DOWN to align with number baseline
@@ -269,9 +279,11 @@ struct StatButton: View {
                     Spacer()
                     
                     // Top Right: Count
-                    Text("\(count)")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.white)
+                    if mode != .completed {
+                        Text("\(count)")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white)
+                    }
                 }
                 .padding(.top, 10)
                 .padding(.horizontal, 10)

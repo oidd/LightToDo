@@ -3,7 +3,7 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import { $getRoot, $getNodeByKey, TextNode, LexicalNode, NodeKey } from 'lexical';
 import { $isListItemNode, $isListNode, ListItemNode, $createListItemNode, $createListNode } from '@lexical/list';
 import { $createReminderNode, $isReminderNode, ReminderNode, ReminderData } from '../nodes/ReminderNode';
-import ReminderSettingsDialog from './ReminderSettingsDialog';
+import TodoDetailsPanel from './TodoDetailsPanel';
 import DropDown, { DropDownItem } from './DropDown';
 
 interface TodoItem {
@@ -78,8 +78,9 @@ export default function TodoView() {
 
             const counts = {
                 all: allItems.filter(t => !t.checked).length,
-                today: allItems.filter(t => !t.checked && t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday).length,
+                today: allItems.filter(t => !t.checked && t.reminder && t.reminder.hasReminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday).length,
                 recurring: allItems.filter(t => t.reminder && t.reminder.repeatType !== 'none').length,
+                important: allItems.filter(t => !t.checked && t.reminder && t.reminder.priority !== 'none').length,
                 completed: allItems.filter(t => t.checked).length
             };
 
@@ -112,6 +113,8 @@ export default function TodoView() {
                         return t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday;
                     case 'recurring':
                         return t.reminder && t.reminder.repeatType !== 'none';
+                    case 'important':
+                        return t.reminder && t.reminder.priority !== 'none';
                     case 'completed':
                         return false; // Should satisfy t.checked check above
                     case 'all':
@@ -144,6 +147,28 @@ export default function TodoView() {
                 const lowerQuery = searchQuery.toLowerCase();
                 finalFiltered = finalFiltered.filter(t => t.text.toLowerCase().includes(lowerQuery));
             }
+
+            // --- Sorting Logic ---
+            // Priority Sort: High (!!!) > Medium (!!) > Low (!) > None
+            // Priority tasks are pinned to top
+            const priorityMap: Record<string, number> = {
+                'high': 3,
+                'medium': 2,
+                'low': 1,
+                'none': 0
+            };
+
+            finalFiltered.sort((a, b) => {
+                const pA = a.reminder?.priority ? priorityMap[a.reminder.priority] : 0;
+                const pB = b.reminder?.priority ? priorityMap[b.reminder.priority] : 0;
+
+                if (pA !== pB) {
+                    return pB - pA; // Higher priority first
+                }
+
+                // If secondary sort needed (e.g. by time), but for now just by priority
+                return 0;
+            });
 
             setTodos(finalFiltered);
         });
@@ -262,7 +287,11 @@ export default function TodoView() {
                             time: 0,
                             repeatType: 'none',
                             originalTime: 0,
-                            completedAt: Date.now()
+                            completedAt: Date.now(),
+                            priority: 'none',
+                            hasReminder: false,
+                            hasDate: false,
+                            hasTime: false
                         }));
                     }
                 }
@@ -313,7 +342,12 @@ export default function TodoView() {
                 oldReminderNode.remove();
             }
             // Add back a reminder node but with no repeat, preserving history and adding completion time
-            node.append($createReminderNode({ ...reminder, repeatType: 'none', completedAt: Date.now() }));
+            node.append($createReminderNode({
+                ...reminder,
+                repeatType: 'none',
+                completedAt: Date.now(),
+                // Keep priority for history
+            }));
 
             // 2. Create new task for next cycle
             const newNode = $createListItemNode();
@@ -357,7 +391,23 @@ export default function TodoView() {
             return {
                 time: oneHourLater,
                 repeatType: 'none',
-                originalTime: oneHourLater
+                originalTime: oneHourLater,
+                priority: 'none',
+                hasReminder: true,
+                hasDate: true,
+                hasTime: true
+            };
+        }
+
+        if (mode === 'important') {
+            return {
+                time: 0,
+                repeatType: 'none',
+                originalTime: 0,
+                priority: 'medium',
+                hasReminder: false,
+                hasDate: false,
+                hasTime: false
             };
         }
 
@@ -365,7 +415,11 @@ export default function TodoView() {
             return {
                 time: oneHourLater,
                 repeatType: 'daily',
-                originalTime: oneHourLater
+                originalTime: oneHourLater,
+                priority: 'none',
+                hasReminder: true,
+                hasDate: true,
+                hasTime: true
             };
         }
 
@@ -494,9 +548,10 @@ export default function TodoView() {
     const isCompletedMode = filterMode === 'completed';
 
     const headerConfig: Record<string, { text: string; color: string }> = {
-        all: { text: '待办事项', color: '#007aff' }, // Keep default blue
-        today: { text: '今天', color: '#ff8d30' },
+        all: { text: '待办事项', color: '#007aff' },
+        today: { text: '今天', color: '#08bcff' },
         recurring: { text: '周期', color: '#ff3b30' },
+        important: { text: '重要', color: '#ff8d30' },
         completed: { text: '完成', color: '#8e8e93' }
     };
 
@@ -560,12 +615,11 @@ export default function TodoView() {
                 )}
             </div>
 
-            <ReminderSettingsDialog
+            <TodoDetailsPanel
                 isOpen={isDialogOpen}
                 initialData={dialogInitialData}
                 onClose={() => setIsDialogOpen(false)}
                 onSave={saveReminder}
-                onRemove={removeReminder}
             />
         </div>
     );
@@ -657,14 +711,26 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
     const getMetaInfo = () => {
         if (!todo.reminder) return null;
         const r = todo.reminder;
+        if (!r.hasDate && !r.hasTime && r.repeatType === 'none') return null;
+
         const d = new Date(r.time);
         const now = new Date();
-        const isOverdue = now.getTime() > r.time;
+        const isOverdue = r.hasDate && now.getTime() > r.time;
+
         const m = d.getMonth() + 1;
         const day = d.getDate();
         const h = String(d.getHours()).padStart(2, '0');
         const min = String(d.getMinutes()).padStart(2, '0');
-        const timeStr = `${m}月${day}日 ${h}:${min}`;
+
+        let timeStr = '';
+        if (r.hasDate && r.hasTime) {
+            timeStr = `${m}月${day}日 ${h}:${min}`;
+        } else if (r.hasDate) {
+            timeStr = `${m}月${day}日`;
+        } else if (r.hasTime) {
+            timeStr = `${h}:${min}`;
+        }
+
         let cycleStr = '';
         if (isOverdue) {
             cycleStr = '已过期';
@@ -675,8 +741,20 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
             };
             cycleStr = map[r.repeatType] || '';
         }
+
         if (!cycleStr) return timeStr;
+        if (!timeStr) return cycleStr;
         return `${timeStr}，${cycleStr}`;
+    };
+
+    const getPriorityPrefix = () => {
+        if (!todo.reminder) return null;
+        switch (todo.reminder.priority) {
+            case 'high': return '!!! ';
+            case 'medium': return '!! ';
+            case 'low': return '! ';
+            default: return null;
+        }
     };
 
     const metaText = getMetaInfo();
@@ -710,7 +788,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
                 <div className="todo-input-mirror-container">
                     {/* Mirroring element that drives the height */}
                     <div className="todo-input-mirror" aria-hidden="true">
-                        {localText || " "}{"\n"}
+                        {getPriorityPrefix()}{localText || " "}{"\n"}
                     </div>
 
                     <textarea
@@ -719,15 +797,28 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
                             if (registerRef) registerRef(todo.key, el);
                         }}
                         className="todo-input"
-                        value={localText}
+                        data-priority={getPriorityPrefix() ? 'true' : 'false'}
+                        value={(getPriorityPrefix() || '') + localText}
                         onChange={(e) => {
-                            setLocalText(e.target.value);
-                            if (!isComposing.current) onTextChange(todo.key, e.target.value);
+                            const val = e.target.value;
+                            const prefix = getPriorityPrefix() || '';
+                            let newText = val;
+                            if (val.startsWith(prefix)) {
+                                newText = val.substring(prefix.length);
+                            }
+                            setLocalText(newText);
+                            if (!isComposing.current) onTextChange(todo.key, newText);
                         }}
                         onCompositionStart={() => isComposing.current = true}
                         onCompositionEnd={(e) => {
                             isComposing.current = false;
-                            onTextChange(todo.key, (e.target as any).value);
+                            const val = (e.target as any).value;
+                            const prefix = getPriorityPrefix() || '';
+                            let newText = val;
+                            if (val.startsWith(prefix)) {
+                                newText = val.substring(prefix.length);
+                            }
+                            onTextChange(todo.key, newText);
                         }}
                         onKeyDown={handleKeyDown}
                         onBlur={() => onTextChange(todo.key, localText)}
@@ -747,14 +838,20 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
 
             <div className="todo-icon-group">
                 {!isCompletedMode && (
-                    <div className="reminder-btn" onClick={onOpenReminder}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    <div className={`info-btn ${todo.reminder?.hasReminder ? 'has-reminder' : ''}`} onClick={onOpenReminder}>
+                        {todo.reminder?.hasReminder && (
+                            <svg className="bell-icon-display" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                            </svg>
+                        )}
+                        <svg className="info-icon-display" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
                         </svg>
                     </div>
                 )}
-                <div className="todo-delete-btn" onClick={() => onDelete(todo.key)}>✕</div>
             </div>
         </div>
     );
