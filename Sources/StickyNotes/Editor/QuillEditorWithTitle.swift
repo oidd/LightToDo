@@ -20,15 +20,14 @@ class ClickableWebView: WKWebView {
     
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
         // 1. 定义需要移除的菜单项关键词 (黑名单)
-        // 移除：查询、搜索、语音、段落方向、共享、自动填充、服务、拼写和语法、转换、选择方向
+        // 移除：查询、搜索、语音、段落方向、共享、自动填充、服务、拼写和语法、转换、选择方向、替换、字体、对齐、列表
         let unwantedKeywords = [
             "查询", "搜索", "语音", "段落方向", "共享", "自动填充", "服务",
-            "拼写", "语法", "转换", "选择方向"
+            "拼写", "语法", "转换", "选择方向", "替换", "字体", "对齐", "列表"
         ]
         
         // 2. 过滤现有菜单项
         var newItems: [NSMenuItem] = []
-        var insertIndexForClearFormatting: Int? = nil
         
         for item in menu.items {
             if item.isSeparatorItem {
@@ -41,10 +40,6 @@ class ClickableWebView: WKWebView {
                 // 如果标题包含任意黑名单关键词，则移除
                 let isUnwanted = unwantedKeywords.contains { title.contains($0) }
                 if !isUnwanted {
-                    // 记录"替换"项的位置，用于在其前面插入 Clear Formatting
-                    if title.contains("替换") {
-                        insertIndexForClearFormatting = newItems.count
-                    }
                     newItems.append(item)
                 }
             }
@@ -55,136 +50,13 @@ class ClickableWebView: WKWebView {
             newItems.removeLast()
         }
         
-        // 3. 在"替换"前插入 "清除格式"
-        // 2.5 进一步清理 "字体" 子菜单 (移除点不动的项)
-        for item in newItems {
-            if item.title.contains("字体") || item.title == "Font" {
-                if let submenu = item.submenu {
-                    var validSubItems: [NSMenuItem] = []
-                    for subItem in submenu.items {
-                        let t = subItem.title
-                        // 移除: 显示字体, 空心字, 样式, 显示颜色
-                        if t.contains("显示字体") || t.contains("Show Fonts") ||
-                           t.contains("空心字") || t.contains("Outline") ||
-                           t.contains("样式") || t.contains("Styles") ||
-                           t.contains("显示颜色") || t.contains("Show Colors") ||
-                           t == "字体" || t == "Font"/*有些系统包含自身标题*/ {
-                            continue
-                        }
-                        validSubItems.append(subItem)
-                    }
-                    
-                    submenu.removeAllItems()
-                    for subItem in validSubItems {
-                        submenu.addItem(subItem)
-                        // 在"加下划线"后面添加 "插入代码块"
-                        if subItem.title.contains("加下划线") || subItem.title.contains("Underline") {
-                             let codeItem = NSMenuItem(title: "插入代码块", action: #selector(toggleInlineCode(_:)), keyEquivalent: "c")
-                             codeItem.keyEquivalentModifierMask = [.command, .shift]
-                             codeItem.target = self
-                             // codeItem.image = NSImage(systemSymbolName: "chevron.left.forwardslash.chevron.right", accessibilityDescription: nil) 
-                             submenu.addItem(codeItem)
-                        }
-                    }
-                }
-            }
-        }
-
-        if let idx = insertIndexForClearFormatting {
-            let clearItem = NSMenuItem(title: "清除格式", action: #selector(clearFormatting(_:)), keyEquivalent: "")
-            clearItem.target = self
-            clearItem.image = NSImage(systemSymbolName: "eraser", accessibilityDescription: nil)
-            newItems.insert(clearItem, at: idx)
-        }
-        
-        // 4. 重建菜单
+        // 3. 重建菜单
         menu.removeAllItems()
         for item in newItems {
             menu.addItem(item)
         }
         
-        // 5. 添加自定义项 (对齐方式和列表)
-        menu.addItem(NSMenuItem.separator())
-        
-        // 创建"对齐方式"主菜单项
-        let alignItem = NSMenuItem(title: "对齐方式", action: nil, keyEquivalent: "")
-        alignItem.image = NSImage(systemSymbolName: "text.alignleft", accessibilityDescription: nil)
-        
-        let subMenu = NSMenu(title: "对齐方式")
-        
-        let leftItem = NSMenuItem(title: "左对齐", action: #selector(alignLeft(_:)), keyEquivalent: "")
-        leftItem.target = self
-        leftItem.image = NSImage(systemSymbolName: "text.alignleft", accessibilityDescription: nil)
-        subMenu.addItem(leftItem)
-        
-        let centerItem = NSMenuItem(title: "居中对齐", action: #selector(alignCenter(_:)), keyEquivalent: "")
-        centerItem.target = self
-        centerItem.image = NSImage(systemSymbolName: "text.aligncenter", accessibilityDescription: nil)
-        subMenu.addItem(centerItem)
-        
-        let rightItem = NSMenuItem(title: "右对齐", action: #selector(alignRight(_:)), keyEquivalent: "")
-        rightItem.target = self
-        rightItem.image = NSImage(systemSymbolName: "text.alignright", accessibilityDescription: nil)
-        subMenu.addItem(rightItem)
-        
-        let justifyItem = NSMenuItem(title: "两端对齐", action: #selector(alignJustify(_:)), keyEquivalent: "")
-        justifyItem.target = self
-        justifyItem.image = NSImage(systemSymbolName: "text.justify", accessibilityDescription: nil)
-        subMenu.addItem(justifyItem)
-        
-        alignItem.submenu = subMenu
-        menu.addItem(alignItem)
-        
-        // 添加 "列表" 子菜单
-        let listItem = NSMenuItem(title: "列表", action: nil, keyEquivalent: "")
-        listItem.image = NSImage(systemSymbolName: "list.bullet", accessibilityDescription: nil)
-        
-        let listSubMenu = NSMenu(title: "列表")
-        
-        // 1. 数字编号
-        let orderedItem = NSMenuItem(title: "数字列表", action: #selector(setOrderedList(_:)), keyEquivalent: "")
-        orderedItem.target = self
-        orderedItem.image = NSImage(systemSymbolName: "list.number", accessibilityDescription: nil)
-        listSubMenu.addItem(orderedItem)
-        
-        // 2. 圆点编号
-        let bulletItem = NSMenuItem(title: "符号列表", action: #selector(setBulletList(_:)), keyEquivalent: "")
-        bulletItem.target = self
-        bulletItem.image = NSImage(systemSymbolName: "list.bullet", accessibilityDescription: nil)
-        listSubMenu.addItem(bulletItem)
-        
-        listItem.submenu = listSubMenu
-        menu.addItem(listItem)
-        
         super.willOpenMenu(menu, with: event)
-    }
-    
-    @objc func clearFormatting(_ sender: Any) {
-        self.evaluateJavaScript("window.clearFormatting && window.clearFormatting()") { _, _ in }
-    }
-    
-    @objc func alignLeft(_ sender: Any) {
-        self.evaluateJavaScript("window.setAlignment && window.setAlignment('left')") { _, _ in }
-    }
-    
-    @objc func alignCenter(_ sender: Any) {
-        self.evaluateJavaScript("window.setAlignment && window.setAlignment('center')") { _, _ in }
-    }
-    
-    @objc func alignRight(_ sender: Any) {
-        self.evaluateJavaScript("window.setAlignment && window.setAlignment('right')") { _, _ in }
-    }
-    
-    @objc func alignJustify(_ sender: Any) {
-        self.evaluateJavaScript("window.setAlignment && window.setAlignment('justify')") { _, _ in }
-    }
-    
-    @objc func setOrderedList(_ sender: Any) {
-        self.evaluateJavaScript("window.setListType && window.setListType('number')") { _, _ in }
-    }
-    
-    @objc func setBulletList(_ sender: Any) {
-        self.evaluateJavaScript("window.setListType && window.setListType('bullet')") { _, _ in }
     }
     
     @objc func toggleInlineCode(_ sender: Any) {
