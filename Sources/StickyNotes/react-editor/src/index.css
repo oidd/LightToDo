@@ -2105,7 +2105,7 @@ body {
   width: 100% !important;
   height: 100% !important;
   /* Force height */
-  margin-top: 16px !important;
+  margin-top: 0px !important;
   padding: 0 !important;
   box-sizing: border-box !important;
   overflow: visible !important;
@@ -2246,9 +2246,27 @@ textarea {
   font-size: 28px;
   font-weight: 700;
   color: #007aff;
-  margin: 0 !important;
-  padding: 10px 0 20px 0;
+  margin-top: -8px !important;
+  /* Pull up to align with visual top of sidebar button */
+  margin-bottom: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding: 0 0 20px 0;
+  /* Reduced top padding */
   border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  /* Make header sticky */
+  top: 0;
+  z-index: 10;
+  background-color: #ffffff;
+  /* White background for opaque stickiness */
+}
+
+@media (prefers-color-scheme: dark) {
+  .todo-header {
+    background-color: #1e1e1e;
+    /* Match main dark background */
+  }
 }
 
 
@@ -2256,6 +2274,8 @@ textarea {
   display: flex;
   flex-direction: column;
   width: 100%;
+  padding-top: 10px;
+  /* Specific gap for first item */
 }
 
 .todo-row {
@@ -2266,9 +2286,14 @@ textarea {
   width: 100%;
   gap: 16px;
   transition: background 0.2s;
+  /* Original Layout Restoration */
   margin: 0 !important;
-  padding-left: 12px !important;
-  padding-right: 12px !important;
+  padding: 8px 12px !important;
+  /* Restore 8px vertical padding from git backup */
+  min-height: 40px;
+  /* Restore min-height */
+  height: auto !important;
+  /* Restore auto height */
   /* Internal horizontal padding prevents circle truncation on hover */
   box-sizing: border-box !important;
 }
@@ -2379,8 +2404,16 @@ textarea {
   position: relative;
 }
 
-.todo-row.completed .todo-input-mirror-container {
+/* Only animate fade away if NOT in completed mode */
+.todo-view:not(.completed-mode) .todo-row.completed .todo-input-mirror-container {
   animation: fadeAway 0.5s ease-out forwards;
+}
+
+/* In completed mode, ensure it's visible and gray */
+.todo-view.completed-mode .todo-row.completed .todo-input-mirror-container {
+  animation: none;
+  opacity: 1;
+  color: #8e8e93;
 }
 
 @keyframes fadeAway {

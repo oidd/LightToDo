@@ -17,7 +17,8 @@ export interface ReminderData {
   time: number; // Timestamp
   repeatType: RepeatType;
   // We store the original configuration to recalculate correctly
-  originalTime: number; 
+  originalTime: number;
+  autoRefreshedAt?: number; // Timestamp when this was auto-created
 }
 
 export type SerializedReminderNode = Spread<

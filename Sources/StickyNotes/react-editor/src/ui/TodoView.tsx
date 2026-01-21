@@ -24,6 +24,10 @@ export default function TodoView() {
     const [dialogTargetKey, setDialogTargetKey] = useState<string | null>(null);
     const [dialogInitialData, setDialogInitialData] = useState<ReminderData | undefined>(undefined);
 
+    // Optimistic UI State for recurring tasks
+    const [optimisticIds, setOptimisticIds] = useState<Set<string>>(new Set());
+    const pendingTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
     const updateTodos = useCallback(() => {
         editor.getEditorState().read(() => {
             const allItems: TodoItem[] = [];
@@ -132,6 +136,19 @@ export default function TodoView() {
 
     const handleToggle = (key: string, checked: boolean, todo: TodoItem) => {
         if (!checked) {
+            // If user unchecked while we were waiting for the recurring task to complete (optimistic state)
+            if (pendingTimeouts.current.has(key)) {
+                clearTimeout(pendingTimeouts.current.get(key));
+                pendingTimeouts.current.delete(key);
+                setOptimisticIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(key);
+                    return next;
+                });
+                return; // Do nothing else, Lexical state was never changed
+            }
+
+            // Normal uncheck
             editor.update(() => {
                 const node = $getNodeByKey(key);
                 if ($isListItemNode(node)) {
@@ -142,21 +159,28 @@ export default function TodoView() {
         }
 
         if (todo.reminder && todo.reminder.repeatType !== 'none') {
-            // For recurring todos, first show it as completed for feedback, then replace it
-            editor.update(() => {
-                const node = $getNodeByKey(key);
-                if ($isListItemNode(node)) {
-                    node.setChecked(true);
-                }
+            // For recurring todos, use Optimistic UI to keep it in the list (visually checked)
+            // instead of removing it immediately via filter logic.
+            setOptimisticIds(prev => {
+                const next = new Set(prev);
+                next.add(key);
+                return next;
             });
 
-            // Delay the replacement so the user sees the sweep animation
-            setTimeout(() => {
+            const timeoutId = setTimeout(() => {
+                pendingTimeouts.current.delete(key);
+                // Clear optimistic state exactly when we are about to replace data
+                setOptimisticIds(prev => {
+                    const next = new Set(prev);
+                    next.delete(key);
+                    return next;
+                });
                 calculateNextReminderAndReplace(key, todo);
             }, 800);
+
+            pendingTimeouts.current.set(key, timeoutId);
         } else {
             // For normal todos, just mark as checked.
-            // It will be filtered out from "all/today" and appear in "completed" automatically.
             editor.update(() => {
                 const node = $getNodeByKey(key);
                 if ($isListItemNode(node)) {
@@ -197,14 +221,28 @@ export default function TodoView() {
             }
 
             nextTime = d.getTime();
-            const newReminder = { ...reminder, time: nextTime };
+            const newReminder = { ...reminder, time: nextTime, autoRefreshedAt: Date.now() };
 
+            // 1. Archive the old task: remove repeat logic so it stays as a simple completed task
+            // We must explicitly set it to checked now, because handleToggle didn't do it (it was optimistic)
+            node.setChecked(true);
+
+            const children = node.getChildren();
+            const oldReminderNode = children.find(c => $isReminderNode(c));
+            if (oldReminderNode) {
+                oldReminderNode.remove();
+                // Add back a reminder node but with no repeat, preserving history
+                node.append($createReminderNode({ ...reminder, repeatType: 'none' }));
+            }
+
+            // 2. Create new task for next cycle
             const newNode = $createListItemNode();
             newNode.setChecked(false);
             newNode.append(new TextNode(todo.text));
             newNode.append($createReminderNode(newReminder));
 
-            node.replace(newNode);
+            // Insert new task after the old one
+            node.insertAfter(newNode);
         });
     };
 
@@ -295,14 +333,19 @@ export default function TodoView() {
         itemRefs.current[key] = el;
     }, []);
 
+    const isCompletedMode = filterMode === 'completed';
+
     return (
         <div className={`todo-view ${filterMode}-mode`}>
-            <div className="todo-header">待办事项</div>
+            <div className="todo-header" style={{ color: isCompletedMode ? '#8e8e93' : '#007aff' }}>
+                {isCompletedMode ? '完成' : '待办事项'}
+            </div>
             <div className="todo-list">
                 {todos.map(todo => (
                     <TodoItemRow
                         key={todo.key}
-                        todo={todo}
+                        todo={optimisticIds.has(todo.key) ? { ...todo, checked: true } : todo}
+                        isCompletedMode={isCompletedMode}
                         registerRef={setItemRef}
                         onToggle={(checked) => handleToggle(todo.key, checked, todo)}
                         onTextChange={handleTextChange}
@@ -315,7 +358,7 @@ export default function TodoView() {
                     <div className="todo-empty" onClick={handleCreateFirst}>
                         点击添加您的第一条待办事项...
                     </div>
-                ) : (
+                ) : filterMode !== 'completed' && (
                     <div className="todo-row add-new" onClick={() => handleEnter(todos[todos.length - 1].key)}>
                         <div className="todo-checkbox-wrapper">
                             <div className="todo-checkbox" style={{ borderColor: 'transparent', opacity: 0.3 }}></div>
@@ -348,9 +391,10 @@ interface RowProps {
     onEnter: (key: string) => void;
     onDelete: (key: string) => void;
     onOpenReminder: () => void;
+    isCompletedMode: boolean;
 }
 
-function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDelete, onOpenReminder }: RowProps) {
+function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDelete, onOpenReminder, isCompletedMode }: RowProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [localText, setLocalText] = useState(todo.text);
     const isComposing = useRef(false);
@@ -360,12 +404,17 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
     const [showShimmer, setShowShimmer] = useState(false);
 
     useEffect(() => {
-        if (todo.reminder?.time) {
-            setShowShimmer(true);
-            const timer = setTimeout(() => setShowShimmer(false), 1000);
-            return () => clearTimeout(timer);
+        // Disable shimmer if in completed mode
+        // Only show shimmer if the task was auto-refreshed recently (within 5 seconds)
+        if (!isCompletedMode && todo.reminder?.autoRefreshedAt) {
+            const isRecent = Date.now() - todo.reminder.autoRefreshedAt < 5000;
+            if (isRecent) {
+                setShowShimmer(true);
+                const timer = setTimeout(() => setShowShimmer(false), 1000);
+                return () => clearTimeout(timer);
+            }
         }
-    }, [todo.reminder?.time]);
+    }, [todo.reminder?.autoRefreshedAt, isCompletedMode]);
 
     useEffect(() => {
         registerRef(todo.key, textareaRef.current);
@@ -499,12 +548,14 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onEnter, onDel
             </div>
 
             <div className="todo-icon-group">
-                <div className="reminder-btn" onClick={onOpenReminder}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                    </svg>
-                </div>
+                {!isCompletedMode && (
+                    <div className="reminder-btn" onClick={onOpenReminder}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                    </div>
+                )}
                 <div className="todo-delete-btn" onClick={() => onDelete(todo.key)}>✕</div>
             </div>
         </div>

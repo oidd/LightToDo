@@ -63,7 +63,7 @@ struct EditorView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .padding(.top, 10)
+        .padding(.top, 0)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
