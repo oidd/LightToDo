@@ -117,8 +117,10 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                         </div>
                         <div className="panel-label-group">
                             <span className="panel-label">日期</span>
-                            {hasDate && !isDateExpanded && (
-                                <span className="panel-sub-label">{formatDateDisplay(date)}</span>
+                            {hasDate && (
+                                <span className="panel-sub-label" style={{ display: isDateExpanded ? 'none' : 'block' }}>
+                                    {formatDateDisplay(date)}
+                                </span>
                             )}
                         </div>
                         <Switch
@@ -137,6 +139,7 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                         <div className="panel-expanded-picker">
                             <input
                                 type="date"
+                                autoFocus
                                 className="apple-date-picker"
                                 value={date}
                                 onChange={e => setDate(e.target.value)}
@@ -153,8 +156,10 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                         </div>
                         <div className="panel-label-group">
                             <span className="panel-label">时间</span>
-                            {hasTime && !isTimeExpanded && (
-                                <span className="panel-sub-label">{time}</span>
+                            {hasTime && (
+                                <span className="panel-sub-label" style={{ display: isTimeExpanded ? 'none' : 'block' }}>
+                                    {time}
+                                </span>
                             )}
                         </div>
                         <Switch
@@ -173,6 +178,7 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                         <div className="panel-expanded-picker">
                             <input
                                 type="time"
+                                autoFocus
                                 className="apple-time-picker"
                                 value={time}
                                 onChange={e => setTime(e.target.value)}

@@ -616,6 +616,7 @@ export default function TodoView() {
             </div>
 
             <TodoDetailsPanel
+                key={dialogTargetKey || 'new'}
                 isOpen={isDialogOpen}
                 initialData={dialogInitialData}
                 onClose={() => setIsDialogOpen(false)}

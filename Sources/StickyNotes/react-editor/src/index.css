@@ -2404,37 +2404,41 @@ textarea {
   background-color: rgba(0, 122, 255, 0.03);
 }
 
+/* Todo info button and icon management */
 .info-btn {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex !important;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   cursor: pointer;
   color: #007aff;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, opacity 0.2s;
   flex-shrink: 0;
+  background-color: transparent;
 }
 
+/* Background bubble shows when button hovered or row hovered */
 .info-btn:hover,
 .todo-row:hover .info-btn {
   background-color: rgba(0, 122, 255, 0.1);
 }
 
-/* Base states for icons within the button */
+/* Icons are hidden by default */
 .info-btn .info-icon-display,
 .info-btn .bell-icon-display {
   display: none !important;
   pointer-events: none;
+  /* Let clicks pass to the button */
 }
 
-/* Bell is persistent if has-reminder class is present */
+/* Bell shows by default if has-reminder is present */
 .info-btn.has-reminder .bell-icon-display {
   display: block !important;
 }
 
-/* On Row Hover: Hide bell and Show info icon exclusively */
+/* On row hover: SWAP bell for info icon */
 .todo-row:hover .info-btn .bell-icon-display {
   display: none !important;
 }
@@ -2447,6 +2451,25 @@ textarea {
   background-color: transparent;
   padding: 0;
   margin: 0;
+}
+
+.todo-details-panel.apple-style .switch label {
+  width: 0;
+  margin: 0;
+}
+
+.todo-details-panel.apple-style .switch button {
+  margin: 0;
+}
+
+.panel-icon-box {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .priority-prefix {
@@ -2510,8 +2533,10 @@ textarea {
 .panel-row {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 12px;
-  min-height: 44px;
+  min-height: 48px;
+  padding: 4px 0;
 }
 
 .panel-row.clickable {
@@ -2599,11 +2624,18 @@ textarea {
   border: none;
   background: transparent;
   color: #8e8e93;
-  font-size: 14px;
+  font-size: 15px;
   outline: none;
   cursor: pointer;
   text-align: right;
-  min-width: 60px;
+  text-align-last: right;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.apple-select option {
+  text-align: right;
+  direction: ltr;
 }
 
 .panel-divider {
