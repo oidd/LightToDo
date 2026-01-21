@@ -8,8 +8,16 @@
 
 @import 'https://fonts.googleapis.com/css?family=Reenie+Beanie';
 
+html,
 body {
-  margin: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow-x: hidden !important;
+  /* Prevent horizontal scrollbar */
+  overflow-y: hidden !important;
+  /* Layout is controlled via containers */
   font-family:
     system-ui,
     -apple-system,
@@ -20,7 +28,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: var(--app-bg, #eee);
   color: var(--text-color, #1a1a1a);
-  padding: 0;
 }
 
 mark {
@@ -2065,6 +2072,8 @@ body {
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box !important;
+  overflow-x: hidden !important;
+  /* Strictly no horizontal overflow */
 }
 
 .editor-shell {
@@ -2394,6 +2403,8 @@ button.toolbar-item:has(i.link) {
   animation: fadeInMode 0.3s ease-out;
   box-sizing: border-box !important;
   overflow-y: auto !important;
+  overflow-x: hidden !important;
+  /* Ensure no horizontal scrollbar here */
   min-height: 0;
 }
 
@@ -3264,44 +3275,68 @@ select:focus,
 }
 
 
-/* Todo Textarea Fixes */
+/* --- Mirror Auto-grow Technique --- */
 
-.todo-row {
-  /* Ensure no fixed height */
-  height: auto !important;
-  min-height: 40px;
-  /* Base height */
-  /* Remove padding that might create "white space" if content doesn't fill it */
-  padding-top: 8px;
-  padding-bottom: 8px;
-  /* Ensure items align top but content fills */
-  align-items: flex-start !important;
+.todo-input-mirror-container {
+  display: grid;
+  width: 100%;
+  position: relative;
+  /* This container will naturally grow because of the mirror child */
 }
 
-.todo-content-wrapper {
-  /* Remove overflow hidden which might clip content */
-  overflow: visible !important;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  /* Determine vertical alignment */
+/* Share identical styles to ensure identical wrapping */
+.todo-input,
+.todo-input-mirror {
+  grid-area: 1 / 1 / 2 / 2;
+  width: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: inherit;
+  font-size: 18px;
+  /* Standardized to 18px per user request */
+  line-height: 1.5;
+  border: none;
+  outline: none;
+  background: transparent;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-sizing: border-box;
 }
 
 .todo-input {
-  /* Reset margins/paddings */
-  margin: 0 !important;
-  padding: 0 !important;
-  line-height: 1.5;
-  /* Ensure it fills width */
-  width: 100% !important;
-  /* Ensure box-sizing */
-  box-sizing: border-box;
-  /* Remove weird background */
-  background: transparent;
+  resize: none;
+  overflow: hidden;
+  color: inherit;
 }
 
-/* Ensure checkbox aligns with the first line of text */
-.todo-checkbox-wrapper {
-  padding-top: 4px;
-  /* Adjust based on line-height to center optically */
+.todo-input-mirror {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Ensure Row behaves well with growing content */
+.todo-row {
+  display: flex;
+  align-items: flex-start !important;
+  gap: 8px;
+  padding: 8px 12px;
+  min-height: 40px;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  /* Critical: prevent width overflow from padding */
+}
+
+/* Correct icon alignment for multi-line */
+.todo-checkbox-wrapper,
+.todo-icon-group {
+  padding-top: 4.5px;
+  /* Centering 18px icon in 27px line-height (1.5 * 18px) */
+}
+
+.todo-content-wrapper {
+  overflow: visible !important;
+  display: flex;
+  flex-direction: column;
+  margin-top: -1px;
+  /* Optical shift to move text up per user request */
 }
