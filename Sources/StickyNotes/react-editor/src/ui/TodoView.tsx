@@ -810,6 +810,10 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                 'weekly': '每周', 'monthly': '每月', 'yearly': '每年'
             };
             cycleStr = map[r.repeatType] || '';
+            // If repeatType is 'none' but has date/time, show "一次性"
+            if (r.repeatType === 'none' && (r.hasDate || r.hasTime)) {
+                cycleStr = '一次性';
+            }
         }
 
         if (!cycleStr) return timeStr;

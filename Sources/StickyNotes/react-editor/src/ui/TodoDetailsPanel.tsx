@@ -97,7 +97,7 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
         const month = d.getMonth() + 1;
 
         return [
-            { value: 'none', label: '从不' },
+            { value: 'none', label: '一次性' },
             { value: 'daily', label: '每天' },
             { value: 'weekdays', label: '工作日' },
             { value: 'weekly', label: `每周（${dayOfWeek}）` },
@@ -106,8 +106,34 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
         ];
     };
 
+    // Handle close: if time is on but date is off, auto-enable date with today's value
+    const handleClose = () => {
+        if (hasTime && !hasDate) {
+            // Auto-enable date and set it to today
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            setHasDate(true);
+            setDate(todayStr);
+            // Save with the updated values
+            let timestamp = 0;
+            if (todayStr && time) {
+                timestamp = new Date(`${todayStr}T${time}:00`).getTime();
+            }
+            onSave({
+                time: timestamp,
+                repeatType,
+                originalTime: timestamp,
+                priority,
+                hasReminder,
+                hasDate: true,
+                hasTime
+            });
+        }
+        onClose();
+    };
+
     return (
-        <div className="todo-details-panel-overlay" onClick={onClose}>
+        <div className="todo-details-panel-overlay" onClick={handleClose}>
             <div className="todo-details-panel apple-style" onClick={e => e.stopPropagation()}>
                 {/* Date Section */}
                 <div className={`panel-section ${isDateExpanded ? 'expanded' : ''}`}>
@@ -250,7 +276,7 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                 </div>
 
                 <div className="panel-footer">
-                    <button className="apple-done-btn" onClick={onClose}>完成</button>
+                    <button className="apple-done-btn" onClick={handleClose}>完成</button>
                 </div>
             </div>
         </div>
