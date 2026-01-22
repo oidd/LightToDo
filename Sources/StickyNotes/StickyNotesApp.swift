@@ -41,6 +41,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var globalMonitor: Any?
     var localMonitor: Any?
     
+    // Reminder manager
+    let reminderManager = ReminderManager.shared
+    
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 寻找并配置初始窗口
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -53,6 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         
         setupHotKey()
+        setupReminderManager()
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -212,6 +216,58 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
             hideStandardButtons(for: window)
+        }
+    }
+    
+    // MARK: - Reminder Manager Setup
+    
+    private func setupReminderManager() {
+        // Handle reminder triggered - start ripple animation
+        reminderManager.onReminderTriggered = { [weak self] todoKey, colorString in
+            guard let self = self,
+                  let windowController = self.windowController else { return }
+            
+            // Note: If window is collapsed (orange edge bar), show ripple animation
+            if windowController.isCollapsed {
+                let globalColor = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
+                let color = self.colorFromString(globalColor)
+                windowController.startRippleAnimation(color: color)
+            }
+            
+            // Notify WebView via notification (handled by QuillEditor coordinator)
+            NotificationCenter.default.post(name: NSNotification.Name("TriggerBellAnimation"), object: todoKey)
+        }
+        
+        // Handle stop ripple
+        reminderManager.onStopRipple = { [weak self] in
+            self?.windowController?.stopRippleAnimation()
+        }
+        
+        // Handle preview request from WebView
+        NotificationCenter.default.addObserver(forName: NSNotification.Name("TriggerReminderPreview"), object: nil, queue: .main) { [weak self] _ in
+            guard let self = self, let windowController = self.windowController else { return }
+            
+            let globalColor = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
+            let color = self.colorFromString(globalColor)
+            
+            // Special preview logic: if not collapsed, we might want to temporarily mock it?
+            // But the user said "桌面边缘出现一条临时的长条，播放效果"
+            // So we'll force it to show even if not collapsed, or just trigger the animation if possible.
+            
+            windowController.startRippleAnimation(color: color, isPreview: true)
+        }
+    }
+    
+    private func colorFromString(_ colorString: String) -> NSColor {
+        switch colorString {
+        case "blue": return NSColor(red: 0.565, green: 0.792, blue: 0.976, alpha: 1) // #90caf9
+        case "green": return NSColor(red: 0.647, green: 0.839, blue: 0.655, alpha: 1) // #a5d6a7
+        case "red": return NSColor(red: 0.937, green: 0.604, blue: 0.604, alpha: 1) // #ef9a9a
+        case "yellow": return NSColor(red: 1, green: 0.961, blue: 0.616, alpha: 1) // #fff59d
+        case "purple": return NSColor(red: 0.808, green: 0.576, blue: 0.847, alpha: 1) // #ce93d8
+        case "pink": return NSColor(red: 0.957, green: 0.561, blue: 0.694, alpha: 1) // #f48fb1
+        case "gray": return NSColor(red: 0.690, green: 0.745, blue: 0.773, alpha: 1) // #b0bec5
+        default: return NSColor(red: 1, green: 0.8, blue: 0.502, alpha: 1) // orange #ffcc80
         }
     }
 }

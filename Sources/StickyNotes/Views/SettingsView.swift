@@ -10,8 +10,20 @@ struct SettingsView: View {
     @AppStorage("globalShortcutModifiers") private var globalShortcutModifiers: Int = 524288 // default Option (Alt)
     @AppStorage("globalShortcutKeyCode") private var globalShortcutKeyCode: Int = 1 // default s keycode
     @AppStorage("todoSortMode") private var todoSortMode: String = "byDeadline" // byDeadline, none
+    @AppStorage("reminderColor") private var reminderColor: String = "orange"
     
     @State private var isRecordingShortcut = false
+    
+    private let availableColors = [
+        ("orange", "橙色", Color(red: 1, green: 0.8, blue: 0.502)),
+        ("blue", "蓝色", Color(red: 0.565, green: 0.792, blue: 0.976)),
+        ("green", "绿色", Color(red: 0.647, green: 0.839, blue: 0.655)),
+        ("red", "红色", Color(red: 0.937, green: 0.604, blue: 0.604)),
+        ("yellow", "黄色", Color(red: 1, green: 0.961, blue: 0.616)),
+        ("purple", "紫色", Color(red: 0.808, green: 0.576, blue: 0.847)),
+        ("pink", "粉色", Color(red: 0.957, green: 0.561, blue: 0.694)),
+        ("gray", "灰色", Color(red: 0.690, green: 0.745, blue: 0.773))
+    ]
     
     var body: some View {
         Form {
@@ -23,18 +35,15 @@ struct SettingsView: View {
                         updateLaunchAtLogin(newValue)
                     }
                 
-                // 2. 将此 APP 保持在最前 (Optional, standard needed?)
-                // Toggle("Keep Window on Top", isOn: ...)
-                
                 // 3. 关闭主面板时的操作
-                Picker("点击窗口关闭按钮 (x) 时:", selection: $closeAction) {
+                Picker("点击窗口关闭按钮 (x) 时", selection: $closeAction) {
                     Text("最小化到程序坞").tag("minimize")
                     Text("退出应用").tag("quit")
                 }
                 .pickerStyle(.menu)
                 
                 // 4. 待办事项排序
-                Picker("待办事项排序:", selection: $todoSortMode) {
+                Picker("待办事项排序", selection: $todoSortMode) {
                     Text("按截止时间").tag("byDeadline")
                     Text("不排序").tag("none")
                 }
@@ -52,25 +61,55 @@ struct SettingsView: View {
                     Text("浅色模式").tag("light")
                     Text("深色模式").tag("dark")
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
+                
+                // 5. 贴边长条颜色
+                Picker("贴边长条颜色", selection: $reminderColor) {
+                    ForEach(availableColors, id: \.0) { colorInfo in
+                        Label {
+                            Text(colorInfo.1)
+                        } icon: {
+                            Image(systemName: "circle.fill")
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(colorInfo.2)
+                        }
+                        .tag(colorInfo.0)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: reminderColor) { newValue in
+                    NotificationCenter.default.post(name: Notification.Name("EdgeBarColorChanged"), object: newValue)
+                }
+                .padding(.vertical, 4)
             } header: {
                 Text("外观")
             }
             
             // MARK: - Storage
             Section {
-                // 5. 笔记保存位置
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("当前位置: \(currentStoragePath)")
+                // 5. 笔记保存位置 (Simplified single row)
+                HStack(spacing: 8) {
+                    Text(currentStoragePath)
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(6)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.secondary.opacity(0.1), lineWidth: 0.5)
+                        )
                     
-                    Button("更改保存位置...") {
+                    Button("更改") {
                         selectStorageFolder()
                     }
+                    .buttonStyle(.bordered)
                 }
+                .padding(.vertical, 4)
             } header: {
                 Text("存储")
             }

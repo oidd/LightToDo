@@ -36,6 +36,10 @@ export default function TodoView() {
     // Sorting mode from settings
     const [sortMode, setSortMode] = useState<string>('byDeadline');
 
+    // Bell ringing animation state
+    const [ringingBells, setRingingBells] = useState<Set<string>>(new Set());
+    const bellTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
     const updateTodos = useCallback(() => {
         editor.getEditorState().read(() => {
             const allItems: TodoItem[] = [];
@@ -93,6 +97,14 @@ export default function TodoView() {
             // Send counts back to Swift
             if (window.webkit?.messageHandlers?.editor) {
                 window.webkit.messageHandlers.editor.postMessage({ type: 'counts', data: counts });
+
+                // Also send reminders data
+                const reminders = allItems.filter(t => !t.checked && t.reminder?.hasReminder).map(t => ({
+                    key: t.key,
+                    time: t.reminder?.time || 0,
+                    hasReminder: t.reminder?.hasReminder || false
+                }));
+                window.webkit.messageHandlers.editor.postMessage({ type: 'reminders', data: reminders });
             } else {
                 console.warn('⚠️ window.webkit.messageHandlers.editor NOT FOUND');
             }
@@ -215,7 +227,51 @@ export default function TodoView() {
             setSortMode(mode);
         };
 
+        // Bell animation trigger from Swift
+        (window as any).triggerBellAnimation = (todoKey: string) => {
+            setRingingBells(prev => {
+                const next = new Set(prev);
+                next.add(todoKey);
+                return next;
+            });
+
+            // Auto-stop after 1 minute
+            const timeout = setTimeout(() => {
+                setRingingBells(prev => {
+                    const next = new Set(prev);
+                    next.delete(todoKey);
+                    return next;
+                });
+                bellTimeouts.current.delete(todoKey);
+            }, 60000);
+
+            bellTimeouts.current.set(todoKey, timeout);
+        };
+
+        // Stop bell animation (when todo is checked)
+        (window as any).stopBellAnimation = (todoKey: string) => {
+            if (bellTimeouts.current.has(todoKey)) {
+                clearTimeout(bellTimeouts.current.get(todoKey));
+                bellTimeouts.current.delete(todoKey);
+            }
+            setRingingBells(prev => {
+                const next = new Set(prev);
+                next.delete(todoKey);
+                return next;
+            });
+        };
+
+        // Get reminder data for Swift to check deadlines
+        (window as any).getReminderData = () => {
+            return JSON.stringify(todos.filter(t => !t.checked && t.reminder?.hasReminder).map(t => ({
+                key: t.key,
+                time: t.reminder?.time || 0,
+                hasReminder: t.reminder?.hasReminder || false
+            })));
+        };
+
         (window as any).addNewTodo = () => {
+
             // Logic similar to handleCreateFirst but context aware
             editor.getEditorState().read(() => {
                 const root = $getRoot();
@@ -654,6 +710,7 @@ export default function TodoView() {
                         key={todo.key}
                         todo={optimisticIds.has(todo.key) ? { ...todo, checked: true } : todo}
                         isCompletedMode={isCompletedMode}
+                        isRinging={ringingBells.has(todo.key)}
                         registerRef={setItemRef}
                         onToggle={(checked) => handleToggle(todo.key, checked, todo)}
                         onTextChange={handleTextChange}
@@ -708,9 +765,10 @@ interface RowProps {
     onPriorityChange: (key: string, priority: 'none' | 'low' | 'medium' | 'high') => void;
     onOpenReminder: () => void;
     isCompletedMode: boolean;
+    isRinging: boolean;
 }
 
-function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode }: RowProps) {
+function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode, isRinging }: RowProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [localText, setLocalText] = useState(todo.text);
     const isComposing = useRef(false);
@@ -937,11 +995,21 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                 {!isCompletedMode && (
                     <div className={`info-btn ${todo.reminder?.hasReminder ? 'has-reminder' : ''}`} onClick={onOpenReminder}>
                         {todo.reminder?.hasReminder && (
-                            <svg className="bell-icon-display" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                            </svg>
+                            <div className={`bell-ripple-container ${isRinging ? 'bell-ringing' : ''}`}>
+                                <svg className="bell-icon-display" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                    <path className="bell-clapper" d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                                </svg>
+                                {isRinging && (
+                                    <>
+                                        <span className="bell-ripple"></span>
+                                        <span className="bell-ripple"></span>
+                                        <span className="bell-ripple"></span>
+                                    </>
+                                )}
+                            </div>
                         )}
+
                         <svg className="info-icon-display" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="12" cy="12" r="10"></circle>
                             <line x1="12" y1="16" x2="12" y2="12"></line>

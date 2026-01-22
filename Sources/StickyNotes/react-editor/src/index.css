@@ -2676,6 +2676,205 @@ textarea {
   cursor: pointer;
 }
 
+/* Reminder Color Picker */
+.reminder-color-picker {
+  display: flex;
+  gap: 8px;
+  padding: 10px 38px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.color-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.color-dot:hover {
+  transform: scale(1.15);
+}
+
+.color-dot.selected {
+  border-color: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Soft pastel colors */
+.color-orange {
+  background-color: #ffcc80;
+}
+
+.color-blue {
+  background-color: #90caf9;
+}
+
+.color-green {
+  background-color: #a5d6a7;
+}
+
+.color-red {
+  background-color: #ef9a9a;
+}
+
+.color-yellow {
+  background-color: #fff59d;
+}
+
+.color-purple {
+  background-color: #ce93d8;
+}
+
+.color-pink {
+  background-color: #f48fb1;
+}
+
+.color-gray {
+  background-color: #b0bec5;
+}
+
+/* Reminder Error Text */
+.panel-label-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-error-text {
+  font-size: 11px;
+  color: #ff3b30;
+  position: absolute;
+  top: 18px;
+  /* Below the "提醒" text */
+  left: 0;
+  white-space: nowrap;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.panel-preview-btn {
+  background: rgba(0, 122, 255, 0.1);
+  border: none;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #007aff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.panel-preview-btn:hover {
+  background: rgba(0, 122, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.panel-preview-btn:active {
+  transform: scale(0.95);
+}
+
+/* Bell Ringing Animation */
+.bell-ringing {
+  animation: bell-swing 0.5s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+@keyframes bell-swing {
+
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  20% {
+    transform: rotate(15deg);
+  }
+
+  40% {
+    transform: rotate(-10deg);
+  }
+
+  60% {
+    transform: rotate(8deg);
+  }
+
+  80% {
+    transform: rotate(-5deg);
+  }
+}
+
+.bell-ringing .bell-clapper {
+  animation: clapper-swing 0.5s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+@keyframes clapper-swing {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(2px);
+  }
+
+  75% {
+    transform: translateX(-2px);
+  }
+}
+
+/* Bell ripple effect */
+.bell-ripple-container {
+  position: relative;
+  display: inline-block;
+}
+
+.bell-ripple {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 122, 255, 0.6);
+  animation: bell-ripple-out 1s ease-out infinite;
+  pointer-events: none;
+}
+
+.bell-ripple:nth-child(2) {
+  animation-delay: 0.33s;
+}
+
+.bell-ripple:nth-child(3) {
+  animation-delay: 0.66s;
+}
+
+@keyframes bell-ripple-out {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 0;
+  }
+}
+
+
 /* Dark Mode */
 @media (prefers-color-scheme: dark) {
   .todo-details-panel.apple-style {

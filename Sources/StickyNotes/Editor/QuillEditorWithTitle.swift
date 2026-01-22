@@ -290,6 +290,8 @@ struct QuillEditor: NSViewRepresentable {
         
         init(_ parent: QuillEditor) {
             self.parent = parent
+            super.init()
+            setupBellNotification()
         }
         
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -341,6 +343,19 @@ struct QuillEditor: NSViewRepresentable {
                     }
                 }
             
+            case "reminders":
+                if let remindersData = data["data"] as? [[String: Any]] {
+                    do {
+                        let jsonData = try JSONSerialization.data(withJSONObject: remindersData)
+                        if let jsonString = String(data: jsonData, encoding: .utf8) {
+                            let reminders = ReminderManager.shared.parseRemindersFromJSON(jsonString)
+                            ReminderManager.shared.updateReminders(reminders)
+                        }
+                    } catch {
+                        print("Failed to encode reminders data: \(error)")
+                    }
+                }
+                
             case "counts":
                 if let countsDict = data["data"] as? [String: Any] {
                     var counts: [String: Int] = [:]
@@ -359,8 +374,21 @@ struct QuillEditor: NSViewRepresentable {
                     }
                 }
                 
+            case "previewReminder":
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: NSNotification.Name("TriggerReminderPreview"), object: nil)
+                }
+                
             default:
                 break
+            }
+        }
+        
+        // Listen for bell animation requests
+        func setupBellNotification() {
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("TriggerBellAnimation"), object: nil, queue: .main) { [weak self] notification in
+                guard let self = self, let todoKey = notification.object as? String else { return }
+                self.webView?.evaluateJavaScript("window.triggerBellAnimation && window.triggerBellAnimation('\(todoKey)')") { _, _ in }
             }
         }
     }

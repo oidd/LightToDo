@@ -4,6 +4,7 @@ import SwiftUI
 class EdgeSnapWindowController: NSObject {
     weak var window: NSWindow?
     private var indicatorWindow: EdgeIndicatorWindow?
+    private var rippleOverlay: RippleOverlayWindow?
     
     // 配置
 
@@ -84,15 +85,50 @@ class EdgeSnapWindowController: NSObject {
             self?.handleLocalInteraction(event)
             return event
         }
+        
+        // 监听颜色变化
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleColorChange),
+            name: Notification.Name("EdgeBarColorChanged"),
+            object: nil
+        )
     }
     
     private func createIndicatorWindow() {
         let indicator = EdgeIndicatorWindow()
+        
+        // 初始化颜色
+        let colorName = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
+        indicator.updateColor(colorFromString(colorName))
+        
         indicator.onMouseEntered = { [weak self] in
             // 鼠标碰到线条，立即展开
+            self?.stopRippleAnimation()
             self?.expand()
         }
         self.indicatorWindow = indicator
+        
+        // Create ripple overlay
+        rippleOverlay = RippleOverlayWindow()
+    }
+    
+    @objc private func handleColorChange(_ notification: Notification) {
+        let colorName = notification.object as? String ?? "orange"
+        indicatorWindow?.updateColor(colorFromString(colorName))
+    }
+    
+    private func colorFromString(_ colorName: String) -> NSColor {
+        switch colorName {
+        case "blue": return NSColor(red: 0.565, green: 0.792, blue: 0.976, alpha: 1)
+        case "green": return NSColor(red: 0.647, green: 0.839, blue: 0.655, alpha: 1)
+        case "red": return NSColor(red: 0.937, green: 0.604, blue: 0.604, alpha: 1)
+        case "yellow": return NSColor(red: 1, green: 0.961, blue: 0.616, alpha: 1)
+        case "purple": return NSColor(red: 0.808, green: 0.576, blue: 0.847, alpha: 1)
+        case "pink": return NSColor(red: 0.957, green: 0.561, blue: 0.694, alpha: 1)
+        case "gray": return NSColor(red: 0.690, green: 0.745, blue: 0.773, alpha: 1)
+        default: return NSColor(red: 1, green: 0.8, blue: 0.502, alpha: 1)
+        }
     }
     
     private func removeMouseMonitors() {
@@ -484,12 +520,87 @@ class EdgeSnapWindowController: NSObject {
              collapse()
         }
     }
+    
+    // MARK: - Reminder Animation
+    
+    /// Start ripple animation with the specified color (called when a reminder triggers)
+    func startRippleAnimation(color: NSColor, isPreview: Bool = false) {
+        // If it's a preview, we might need to "fake" the sticker bar if it's not there
+        let targetEdge = snapEdge != .none ? snapEdge : .right
+        
+        if isPreview && state != .collapsed {
+            // Preview mode: temp show indicator even if window is open
+            showTemporaryIndicator(for: targetEdge, color: color)
+            return
+        }
+        
+        guard state == .collapsed, let indicator = indicatorWindow else { return }
+        
+        // Start shake animation on indicator
+        indicator.startShake()
+        indicator.updateColor(color)
+        
+        // Start ripple overlay
+        rippleOverlay?.startRipple(edge: snapEdge, indicatorFrame: indicator.frame, color: color)
+    }
+    
+    private func showTemporaryIndicator(for edge: SnapEdge, color: NSColor) {
+        guard let window = window, let screen = window.screen ?? NSScreen.main else { return }
+        
+        let screenFrame = screen.visibleFrame
+        let indicatorWidth: CGFloat = 6
+        let indicatorHeight: CGFloat = window.frame.height
+        let indicatorY = window.frame.minY
+        
+        var indicatorFrame = NSRect(x: 0, y: indicatorY, width: indicatorWidth, height: indicatorHeight)
+        
+        switch edge {
+        case .left:
+            indicatorFrame.origin.x = screenFrame.minX
+        case .right:
+            indicatorFrame.origin.x = screenFrame.maxX - indicatorWidth
+        default: return
+        }
+        
+        // Create a temporary indicator for preview
+        let tempIndicator = EdgeIndicatorWindow()
+        tempIndicator.setFrame(indicatorFrame, display: true)
+        tempIndicator.updateColor(color)
+        tempIndicator.orderFront(nil)
+        tempIndicator.startShake()
+        
+        // Start ripple
+        rippleOverlay?.startRipple(edge: edge, indicatorFrame: indicatorFrame, color: color)
+        
+        // Clean up after 3 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            tempIndicator.stopShake()
+            tempIndicator.orderOut(nil)
+            self.rippleOverlay?.stopRipple()
+        }
+    }
+    
+    /// Stop ripple animation (called when user hovers or expands)
+    func stopRippleAnimation() {
+        indicatorWindow?.stopShake()
+        rippleOverlay?.stopRipple()
+        
+        // Reset indicator color to default orange
+        indicatorWindow?.updateColor(.orange)
+    }
+    
+    /// Check if the window is in collapsed (hidden) state
+    var isCollapsed: Bool {
+        return state == .collapsed
+    }
 }
 
 
 // MARK: - Edge Indicator Window
 class EdgeIndicatorWindow: NSPanel {
     var onMouseEntered: (() -> Void)?
+    private var isShaking = false
+    private var shakeAnimation: CAKeyframeAnimation?
     
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -519,6 +630,36 @@ class EdgeIndicatorWindow: NSPanel {
     
     override func mouseEntered(with event: NSEvent) {
         onMouseEntered?()
+    }
+    
+    // MARK: - Shake Animation
+    
+    func startShake() {
+        guard !isShaking, let contentView = self.contentView, let layer = contentView.layer else { return }
+        isShaking = true
+        
+        let animation = CAKeyframeAnimation(keyPath: "position.y")
+        animation.values = [0, -2, 2, -1.5, 1.5, -1, 1, 0]
+        animation.keyTimes = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 1]
+        animation.duration = 0.4
+        animation.repeatCount = .infinity
+        animation.isAdditive = true
+        
+        layer.add(animation, forKey: "shake")
+        shakeAnimation = animation
+    }
+    
+    func stopShake() {
+        guard isShaking, let contentView = self.contentView else { return }
+        isShaking = false
+        contentView.layer?.removeAnimation(forKey: "shake")
+        shakeAnimation = nil
+    }
+    
+    func updateColor(_ color: NSColor) {
+        if let lineView = self.contentView as? SimpleColorView {
+            lineView.backgroundColor = color.withAlphaComponent(0.5)
+        }
     }
 }
 

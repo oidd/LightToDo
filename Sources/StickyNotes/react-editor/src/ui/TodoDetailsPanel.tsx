@@ -18,6 +18,7 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
     const [time, setTime] = useState('');
     const [repeatType, setRepeatType] = useState<RepeatType>('none');
     const [priority, setPriority] = useState<'none' | 'low' | 'medium' | 'high'>('none');
+    const [reminderError, setReminderError] = useState('');
 
     // Expansion states
     const [isDateExpanded, setIsDateExpanded] = useState(false);
@@ -174,7 +175,11 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                                 const newState = !hasDate;
                                 setHasDate(newState);
                                 if (newState) setIsDateExpanded(true);
-                                else setIsDateExpanded(false);
+                                else {
+                                    setIsDateExpanded(false);
+                                    setHasReminder(false);
+                                    setReminderError('');
+                                }
                             }}
                         />
                     </div>
@@ -213,7 +218,11 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                                 const newState = !hasTime;
                                 setHasTime(newState);
                                 if (newState) setIsTimeExpanded(true);
-                                else setIsTimeExpanded(false);
+                                else {
+                                    setIsTimeExpanded(false);
+                                    setHasReminder(false);
+                                    setReminderError('');
+                                }
                             }}
                         />
                     </div>
@@ -238,12 +247,46 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                         </div>
                         <div className="panel-label-group">
                             <span className="panel-label">提醒</span>
+                            {reminderError && (
+                                <span className="panel-error-text">{reminderError}</span>
+                            )}
                         </div>
-                        <Switch
-                            text=""
-                            checked={hasReminder}
-                            onClick={() => setHasReminder(!hasReminder)}
-                        />
+                        <div className="panel-actions">
+                            <button
+                                className="panel-preview-btn"
+                                title="预览提醒效果"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!hasDate || !hasTime) {
+                                        setReminderError('请先设置日期和时间');
+                                        return;
+                                    }
+                                    setReminderError('');
+                                    if (window.webkit?.messageHandlers?.editor) {
+                                        window.webkit.messageHandlers.editor.postMessage({ type: 'previewReminder' });
+                                    }
+                                }}
+                            >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M8 5v14l11-7z" />
+                                </svg>
+                            </button>
+                            <Switch
+                                text=""
+                                checked={hasReminder}
+                                onClick={() => {
+                                    if (!hasReminder) {
+                                        // Trying to enable reminder - check if date and time are set
+                                        if (!hasDate || !hasTime) {
+                                            setReminderError('请先设置日期和时间');
+                                            return;
+                                        }
+                                    }
+                                    setReminderError('');
+                                    setHasReminder(!hasReminder);
+                                }}
+                            />
+                        </div>
                     </div>
                 </div>
 
