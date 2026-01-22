@@ -106,18 +106,35 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
         ];
     };
 
-    // Handle close: if time is on but date is off, auto-enable date with today's value
+    // Handle close: auto-complete date/time if only one is set
     const handleClose = () => {
+        let finalHasDate = hasDate;
+        let finalHasTime = hasTime;
+        let finalDate = date;
+        let finalTime = time;
+
+        // If time is on but date is off, auto-enable date with today's value
         if (hasTime && !hasDate) {
-            // Auto-enable date and set it to today
             const today = new Date();
-            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            finalDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            finalHasDate = true;
             setHasDate(true);
-            setDate(todayStr);
-            // Save with the updated values
+            setDate(finalDate);
+        }
+
+        // If date is on but time is off, auto-enable time with 23:59
+        if (hasDate && !hasTime) {
+            finalTime = '23:59';
+            finalHasTime = true;
+            setHasTime(true);
+            setTime(finalTime);
+        }
+
+        // Save with the updated values if any auto-completion happened
+        if ((hasTime && !hasDate) || (hasDate && !hasTime)) {
             let timestamp = 0;
-            if (todayStr && time) {
-                timestamp = new Date(`${todayStr}T${time}:00`).getTime();
+            if (finalDate && finalTime) {
+                timestamp = new Date(`${finalDate}T${finalTime}:00`).getTime();
             }
             onSave({
                 time: timestamp,
@@ -125,8 +142,8 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                 originalTime: timestamp,
                 priority,
                 hasReminder,
-                hasDate: true,
-                hasTime
+                hasDate: finalHasDate,
+                hasTime: finalHasTime
             });
         }
         onClose();
