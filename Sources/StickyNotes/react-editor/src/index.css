@@ -2261,19 +2261,22 @@ textarea {
   margin-top: -8px !important;
   /* Pull up to align with visual top of sidebar button */
   margin-bottom: 0 !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-  padding: 0 0 12px 0;
-  /* Reduced top padding */
+  margin-left: -20px !important;
+  margin-right: -20px !important;
+  padding: 8px 20px 12px 20px;
+  /* Add horizontal padding to compensate for negative margin */
   border-bottom: 1px solid var(--border-color);
   position: sticky;
   /* Make header sticky */
-  top: 0;
-  z-index: 10;
+  top: -8px;
+  /* Offset for the negative margin-top */
+  z-index: 100;
   display: flex !important;
   flex-direction: column;
-  background: var(--bg-color);
-  /* Ensure opaque background when sticky */
+  /* Frosted glass effect */
+  background: rgba(var(--bg-color-rgb, 255, 255, 255), 0.85);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
 .todo-subheader {
@@ -2343,8 +2346,10 @@ textarea {
 
 @media (prefers-color-scheme: dark) {
   .todo-header {
-    background-color: #1e1e1e;
-    /* Match main dark background */
+    /* Dark mode frosted glass effect */
+    background: rgba(30, 30, 30, 0.85);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
   }
 
   .todo-view .dropdown {
