@@ -606,7 +606,7 @@ export default function TodoView() {
             <div className="todo-header" style={{ color: currentHeader.color }}>
                 {currentHeader.text}
                 <div className="todo-subheader">
-                    {isCompletedMode ? `${todos.length}项已完成任务` : `${todos.length}项待办任务`}
+                    {isCompletedMode ? `${todos.length}条已完成事项` : `${todos.length}条待办事项`}
                     {isCompletedMode && (
                         <>
                             <span className="dot-separator">&bull;</span>
@@ -619,7 +619,7 @@ export default function TodoView() {
                                 <DropDownItem className="item" onClick={() => clearCompletedTasks('1month')}>超过1个月</DropDownItem>
                                 <DropDownItem className="item" onClick={() => clearCompletedTasks('6months')}>超过6个月</DropDownItem>
                                 <DropDownItem className="item" onClick={() => clearCompletedTasks('1year')}>超过1年</DropDownItem>
-                                <DropDownItem className="item" onClick={() => clearCompletedTasks('all')}>所有已完成任务</DropDownItem>
+                                <DropDownItem className="item" onClick={() => clearCompletedTasks('all')}>所有已完成事项</DropDownItem>
                             </DropDown>
                         </>
                     )}

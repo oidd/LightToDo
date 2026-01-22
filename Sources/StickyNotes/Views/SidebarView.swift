@@ -269,8 +269,8 @@ struct StatButton: View {
                             .renderingMode(.template) 
                             .aspectRatio(contentMode: .fit)
                             .frame(
-                                width: (mode == .recurring || mode == .important || mode == .today) ? 22 : 28,
-                                height: (mode == .recurring || mode == .important || mode == .today) ? 22 : 28
+                                width: mode == .completed ? 25 : (mode == .recurring || mode == .important || mode == .today) ? 22 : 28,
+                                height: mode == .completed ? 25 : (mode == .recurring || mode == .important || mode == .today) ? 22 : 28
                             )
                             .foregroundColor(.white)
                             .offset(y: 1.5) // Move DOWN to align with number baseline
