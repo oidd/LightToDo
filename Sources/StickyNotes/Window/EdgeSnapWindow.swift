@@ -383,6 +383,10 @@ class EdgeSnapWindowController: NSObject {
     private func showIndicator(for mainWindow: NSWindow) {
         guard let indicator = indicatorWindow, let screen = mainWindow.screen else { return }
         
+        // 每次显示时刷新颜色（确保使用最新的用户设置）
+        let colorName = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
+        indicator.updateColor(colorFromString(colorName))
+        
         let screenFrame = screen.visibleFrame
         let mainHeight = mainWindow.frame.height
         let mainY = mainWindow.frame.minY
