@@ -310,6 +310,32 @@ export default function TodoView() {
             });
         };
 
+        // Delete focused todo item (called from Swift native context menu)
+        (window as any).deleteFocusedTodo = () => {
+            // Find the currently focused element
+            const activeElement = document.activeElement;
+            if (activeElement && activeElement.classList.contains('todo-input')) {
+                // Get the todo item row
+                const todoRow = activeElement.closest('.todo-row');
+                if (todoRow) {
+                    // Find the todo key by matching the textarea with itemRefs
+                    for (const todo of todos) {
+                        const ref = itemRefs.current[todo.key];
+                        if (ref && ref === activeElement) {
+                            // Delete this todo
+                            editor.update(() => {
+                                const node = $getNodeByKey(todo.key);
+                                if (node) {
+                                    node.remove();
+                                }
+                            });
+                            break;
+                        }
+                    }
+                }
+            }
+        };
+
         // Get reminder data for Swift to check deadlines
         (window as any).getReminderData = () => {
             return JSON.stringify(todos.filter(t => !t.checked && t.reminder?.hasReminder).map(t => ({
@@ -852,6 +878,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
     // Animation state
     const [isClosing, setIsClosing] = useState(false);
     const [showShimmer, setShowShimmer] = useState(false);
+
 
     useEffect(() => {
         // Disable shimmer if in completed mode

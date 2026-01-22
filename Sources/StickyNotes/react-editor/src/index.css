@@ -3726,6 +3726,62 @@ select:focus,
   /* Slightly larger radius for larger box */
 }
 
+/* Todo Context Menu */
+.todo-context-menu {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15), 0 0 0 0.5px rgba(0, 0, 0, 0.1);
+  padding: 4px;
+  min-width: 140px;
+  overflow: hidden;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #1a1a1a;
+  transition: background-color 0.1s ease;
+}
+
+.context-menu-item:hover {
+  background-color: rgba(0, 122, 255, 0.1);
+}
+
+.context-menu-item svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.context-menu-item span {
+  flex: 1;
+}
+
+/* Dark mode context menu */
+@media (prefers-color-scheme: dark) {
+  .todo-context-menu {
+    background: rgba(45, 45, 45, 0.95);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+  }
+
+  .context-menu-item {
+    color: #eee;
+  }
+
+  .context-menu-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .context-menu-item svg {
+    stroke: #eee;
+  }
+}
 
 /* Layout & Responsiveness Refinements */
 

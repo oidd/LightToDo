@@ -50,7 +50,22 @@ class ClickableWebView: WKWebView {
             newItems.removeLast()
         }
         
-        // 3. 重建菜单
+        // 3. 添加"删除"菜单项 (仅在待办模式下)
+        let deleteItem = NSMenuItem(title: "删除", action: #selector(deleteFocusedTodo(_:)), keyEquivalent: "")
+        deleteItem.target = self
+        // 添加垃圾桶图标以对齐其他菜单项
+        if let trashImage = NSImage(systemSymbolName: "trash", accessibilityDescription: "删除") {
+            trashImage.isTemplate = true
+            deleteItem.image = trashImage
+        }
+        
+        // 如果有其他菜单项，添加分隔符然后添加删除
+        if !newItems.isEmpty {
+            newItems.append(NSMenuItem.separator())
+        }
+        newItems.append(deleteItem)
+        
+        // 4. 重建菜单
         menu.removeAllItems()
         for item in newItems {
             menu.addItem(item)
@@ -58,6 +73,12 @@ class ClickableWebView: WKWebView {
         
         super.willOpenMenu(menu, with: event)
     }
+    
+    @objc func deleteFocusedTodo(_ sender: Any) {
+        // 调用 JavaScript 删除当前聚焦的待办事项
+        self.evaluateJavaScript("window.deleteFocusedTodo && window.deleteFocusedTodo()") { _, _ in }
+    }
+
     
     @objc func toggleInlineCode(_ sender: Any) {
         self.evaluateJavaScript("window.toggleInlineCode && window.toggleInlineCode()") { _, _ in }
