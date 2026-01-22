@@ -85,7 +85,7 @@ export default function TodoView() {
 
             const counts = {
                 all: allItems.filter(t => !t.checked).length,
-                today: allItems.filter(t => !t.checked && t.reminder && t.reminder.hasReminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday).length,
+                today: allItems.filter(t => !t.checked && t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday).length,
                 recurring: allItems.filter(t => t.reminder && t.reminder.repeatType !== 'none').length,
                 important: allItems.filter(t => !t.checked && t.reminder && t.reminder.priority !== 'none').length,
                 completed: allItems.filter(t => t.checked).length
@@ -163,9 +163,11 @@ export default function TodoView() {
                 finalFiltered = finalFiltered.filter(t => t.text.toLowerCase().includes(lowerQuery));
             }
 
-            // --- Sorting Logic ---
-            // Priority Sort: High (!!!) > Medium (!!) > Low (!) > None
-            // Priority tasks are pinned to top
+            // --- Stable Position Sorting Logic ---
+            // 1. Items WITH priority: ALWAYS sorted to the very top by priority level
+            // 2. Items WITH date/time but NO priority: sorted by deadline among themselves
+            // 3. Items with NEITHER priority nor date/time: stay pinned in their original position
+
             const priorityMap: Record<string, number> = {
                 'high': 3,
                 'medium': 2,
@@ -173,33 +175,80 @@ export default function TodoView() {
                 'none': 0
             };
 
-            finalFiltered.sort((a, b) => {
-                const pA = a.reminder?.priority ? priorityMap[a.reminder.priority] : 0;
-                const pB = b.reminder?.priority ? priorityMap[b.reminder.priority] : 0;
+            // Helper functions
+            const hasPriority = (t: TodoItem) => t.reminder && t.reminder.priority && t.reminder.priority !== 'none';
+            const hasDateTime = (t: TodoItem) => t.reminder && (t.reminder.hasDate || t.reminder.hasTime);
+            const isSortable = (t: TodoItem) => hasPriority(t) || hasDateTime(t);
 
-                // First sort by priority (higher priority first)
-                if (pA !== pB) {
-                    return pB - pA;
+            // Step 1: Separate items into three categories
+            const priorityItems: TodoItem[] = [];
+            const dateTimeItems: TodoItem[] = [];
+            const pinnedPositions: number[] = [];
+
+            finalFiltered.forEach((t, index) => {
+                if (hasPriority(t)) {
+                    priorityItems.push(t);
+                } else if (hasDateTime(t)) {
+                    dateTimeItems.push(t);
+                } else {
+                    pinnedPositions.push(index);
                 }
+            });
 
-                // If sortMode is 'byDeadline', also sort by deadline within same priority
+            // Step 2: Sort priority items by priority level (high > medium > low)
+            priorityItems.sort((a, b) => {
+                const pA = priorityMap[a.reminder!.priority];
+                const pB = priorityMap[b.reminder!.priority];
+                if (pA !== pB) return pB - pA;
+
+                // Same priority, sort by deadline if available
                 if (sortMode === 'byDeadline') {
-                    // Within same priority, items with deadline come before items without
+                    const hasDeadlineA = a.reminder && a.reminder.time > 0;
+                    const hasDeadlineB = b.reminder && b.reminder.time > 0;
+                    if (hasDeadlineA && hasDeadlineB) {
+                        return a.reminder!.time - b.reminder!.time;
+                    }
+                }
+                return 0;
+            });
+
+            // Step 3: Sort date/time items by deadline
+            dateTimeItems.sort((a, b) => {
+                if (sortMode === 'byDeadline') {
                     const hasDeadlineA = a.reminder && a.reminder.time > 0;
                     const hasDeadlineB = b.reminder && b.reminder.time > 0;
 
                     if (hasDeadlineA && !hasDeadlineB) return -1;
                     if (!hasDeadlineA && hasDeadlineB) return 1;
 
-                    // Both have deadlines: earlier deadline first
                     if (hasDeadlineA && hasDeadlineB) {
                         return a.reminder!.time - b.reminder!.time;
                     }
                 }
-
-                // If sortMode is 'none' or no deadline difference, maintain current order
                 return 0;
             });
+
+            // Step 4: Combine sorted items: priority first, then dateTime
+            const sortedItems = [...priorityItems, ...dateTimeItems];
+
+            // Step 5: Rebuild the final array
+            // - Pinned items stay at their original positions
+            // - Sorted items fill the remaining positions
+            const result: TodoItem[] = new Array(finalFiltered.length);
+            const pinnedSet = new Set(pinnedPositions);
+            let sortedIndex = 0;
+
+            for (let i = 0; i < finalFiltered.length; i++) {
+                if (pinnedSet.has(i)) {
+                    // This position is pinned, use the original item
+                    result[i] = finalFiltered[i];
+                } else {
+                    // This position is for a sorted item
+                    result[i] = sortedItems[sortedIndex++];
+                }
+            }
+
+            finalFiltered = result;
 
             setTodos(finalFiltered);
         });
@@ -507,16 +556,16 @@ export default function TodoView() {
     };
 
     const getDefaultReminder = (mode: string): ReminderData | undefined => {
-        const now = Date.now();
-        const oneHourLater = now + 60 * 60 * 1000;
+        const now = new Date();
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0).getTime();
 
         if (mode === 'today') {
             return {
-                time: oneHourLater,
+                time: endOfToday,
                 repeatType: 'none',
-                originalTime: oneHourLater,
+                originalTime: endOfToday,
                 priority: 'none',
-                hasReminder: true,
+                hasReminder: false,
                 hasDate: true,
                 hasTime: true
             };
@@ -536,11 +585,11 @@ export default function TodoView() {
 
         if (mode === 'recurring') {
             return {
-                time: oneHourLater,
+                time: endOfToday,
                 repeatType: 'daily',
-                originalTime: oneHourLater,
+                originalTime: endOfToday,
                 priority: 'none',
-                hasReminder: true,
+                hasReminder: false,
                 hasDate: true,
                 hasTime: true
             };
@@ -726,17 +775,44 @@ export default function TodoView() {
                     </div>
                 ) : filterMode !== 'completed' && (
                     <div className="todo-fill-area" onClick={() => {
-                        // 查找任意空白草稿（解决排序导致草稿不在末尾的问题）
+                        // 查找任意空白草稿
                         const emptyDraft = todos.find(t => t.text === "");
                         if (emptyDraft) {
                             // 如果存在空白草稿，删除它（取消新增）
                             handleDelete(emptyDraft.key);
-                        } else if (todos.length > 0) {
-                            // 否则在最后一项后面新增
-                            handleEnter(todos[todos.length - 1].key);
                         } else {
-                            // 列表为空时创建第一个
-                            handleCreateFirst();
+                            // 在 Lexical 树的真正末尾插入新节点
+                            // 这样新草稿会出现在文档末尾，而不是排序后列表的末尾
+                            editor.update(() => {
+                                const root = $getRoot();
+                                let lastListItem: ListItemNode | null = null;
+
+                                // 遍历找到最后一个 CheckList 中的 ListItemNode
+                                function findLastListItem(node: LexicalNode) {
+                                    if ($isListItemNode(node)) {
+                                        const parent = node.getParent();
+                                        if ($isListNode(parent) && parent.getListType() === 'check') {
+                                            lastListItem = node;
+                                        }
+                                    }
+                                    if ('getChildren' in node && typeof (node as any).getChildren === 'function') {
+                                        (node as any).getChildren().forEach(findLastListItem);
+                                    }
+                                }
+                                findLastListItem(root);
+
+                                if (lastListItem) {
+                                    const newNode = $createListItemNode();
+                                    newNode.setChecked(false);
+                                    // 不为空白区域创建的草稿设置默认 reminder
+                                    // 这样它就会被视为"固定"项，留在底部
+                                    lastListItem.insertAfter(newNode);
+                                    pendingFocusKey.current = newNode.getKey();
+                                } else {
+                                    // 没有任何待办事项时，创建第一个
+                                    handleCreateFirst();
+                                }
+                            });
                         }
                     }}>
                         {/* Invisible clickable area */}
@@ -992,7 +1068,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
             </div>
 
             <div className="todo-icon-group">
-                {!isCompletedMode && (
+                {!isCompletedMode && localText.trim() !== '' && (
                     <div className={`info-btn ${todo.reminder?.hasReminder ? 'has-reminder' : ''}`} onClick={onOpenReminder}>
                         {todo.reminder?.hasReminder && (
                             <div className={`bell-ripple-container ${isRinging ? 'bell-ringing' : ''}`}>
