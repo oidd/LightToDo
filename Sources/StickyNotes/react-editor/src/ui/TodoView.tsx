@@ -33,6 +33,9 @@ export default function TodoView() {
     // Sticky display logic: once an item is shown in a view, keep showing it even if data changes, until view changes
     const displayedKeys = useRef<Set<string>>(new Set());
 
+    // Sorting mode from settings
+    const [sortMode, setSortMode] = useState<string>('byDeadline');
+
     const updateTodos = useCallback(() => {
         editor.getEditorState().read(() => {
             const allItems: TodoItem[] = [];
@@ -162,17 +165,33 @@ export default function TodoView() {
                 const pA = a.reminder?.priority ? priorityMap[a.reminder.priority] : 0;
                 const pB = b.reminder?.priority ? priorityMap[b.reminder.priority] : 0;
 
+                // First sort by priority (higher priority first)
                 if (pA !== pB) {
-                    return pB - pA; // Higher priority first
+                    return pB - pA;
                 }
 
-                // If secondary sort needed (e.g. by time), but for now just by priority
+                // If sortMode is 'byDeadline', also sort by deadline within same priority
+                if (sortMode === 'byDeadline') {
+                    // Within same priority, items with deadline come before items without
+                    const hasDeadlineA = a.reminder && a.reminder.time > 0;
+                    const hasDeadlineB = b.reminder && b.reminder.time > 0;
+
+                    if (hasDeadlineA && !hasDeadlineB) return -1;
+                    if (!hasDeadlineA && hasDeadlineB) return 1;
+
+                    // Both have deadlines: earlier deadline first
+                    if (hasDeadlineA && hasDeadlineB) {
+                        return a.reminder!.time - b.reminder!.time;
+                    }
+                }
+
+                // If sortMode is 'none' or no deadline difference, maintain current order
                 return 0;
             });
 
             setTodos(finalFiltered);
         });
-    }, [editor, filterMode, searchQuery]);
+    }, [editor, filterMode, searchQuery, sortMode]);
 
     useEffect(() => {
         updateTodos();
@@ -190,6 +209,10 @@ export default function TodoView() {
 
         (window as any).setSearchQuery = (query: string) => {
             setSearchQuery(query);
+        };
+
+        (window as any).setTodoSortMode = (mode: string) => {
+            setSortMode(mode);
         };
 
         (window as any).addNewTodo = () => {

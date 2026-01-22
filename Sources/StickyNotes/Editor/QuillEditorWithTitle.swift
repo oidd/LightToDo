@@ -194,6 +194,7 @@ struct QuillEditor: NSViewRepresentable {
     @Binding var filterMode: String
     @Binding var searchText: String
     @Binding var addTrigger: Int
+    @Binding var sortMode: String
     var isWindowActive: Bool = true
     var onContentUpdate: () -> Void
     var onCountsUpdate: ([String: Int]) -> Void
@@ -264,6 +265,12 @@ struct QuillEditor: NSViewRepresentable {
              nsView.evaluateJavaScript("window.addNewTodo && window.addNewTodo()") { _, _ in }
              context.coordinator.lastAddTrigger = addTrigger
         }
+        
+        // 检查排序模式变化
+        if sortMode != context.coordinator.lastSortMode && context.coordinator.isReady {
+             nsView.evaluateJavaScript("window.setTodoSortMode && window.setTodoSortMode('\(sortMode)')") { _, _ in }
+             context.coordinator.lastSortMode = sortMode
+        }
     }
     
     func makeCoordinator() -> Coordinator {
@@ -279,6 +286,7 @@ struct QuillEditor: NSViewRepresentable {
         var lastLoadedFilterMode: String = "all"
         var lastSearchText: String = ""
         var lastAddTrigger: Int = 0
+        var lastSortMode: String = "byDeadline"
         
         init(_ parent: QuillEditor) {
             self.parent = parent
@@ -305,6 +313,10 @@ struct QuillEditor: NSViewRepresentable {
                 // 初始化过滤模式
                 webView?.evaluateJavaScript("window.setFilterMode('\(parent.filterMode)')") { _, _ in }
                 lastLoadedFilterMode = parent.filterMode
+                
+                // 初始化排序模式
+                webView?.evaluateJavaScript("window.setTodoSortMode && window.setTodoSortMode('\(parent.sortMode)')") { _, _ in }
+                lastSortMode = parent.sortMode
 
                 
                 // 初始化内容

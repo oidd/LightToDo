@@ -9,6 +9,7 @@ struct SettingsView: View {
     @AppStorage("globalShortcutKey") private var globalShortcutKey: String = "s" // default s
     @AppStorage("globalShortcutModifiers") private var globalShortcutModifiers: Int = 524288 // default Option (Alt)
     @AppStorage("globalShortcutKeyCode") private var globalShortcutKeyCode: Int = 1 // default s keycode
+    @AppStorage("todoSortMode") private var todoSortMode: String = "byDeadline" // byDeadline, none
     
     @State private var isRecordingShortcut = false
     
@@ -29,6 +30,13 @@ struct SettingsView: View {
                 Picker("点击窗口关闭按钮 (x) 时:", selection: $closeAction) {
                     Text("最小化到程序坞").tag("minimize")
                     Text("退出应用").tag("quit")
+                }
+                .pickerStyle(.menu)
+                
+                // 4. 待办事项排序
+                Picker("待办事项排序:", selection: $todoSortMode) {
+                    Text("按截止时间").tag("byDeadline")
+                    Text("不排序").tag("none")
                 }
                 .pickerStyle(.menu)
                 

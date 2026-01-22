@@ -12,6 +12,9 @@ struct EditorView: View {
     @State private var searchText: String = ""
     @State private var addTrigger: Int = 0
     
+    // Settings
+    @AppStorage("todoSortMode") private var todoSortMode: String = "byDeadline"
+    
     var body: some View {
         VStack(spacing: 0) {
             if let selectedId = notesManager.selectedNoteId,
@@ -26,6 +29,7 @@ struct EditorView: View {
                     ),
                     searchText: $searchText,
                     addTrigger: $addTrigger,
+                    sortMode: $todoSortMode,
                     isWindowActive: controlActiveState == .key,
                     onContentUpdate: {
                         saveContent()
