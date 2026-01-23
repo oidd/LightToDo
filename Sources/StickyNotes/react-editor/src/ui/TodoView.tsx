@@ -1189,7 +1189,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
             timeStr = `${h}:${min}`;
         }
 
-        const isOverdue = r.hasDate && now.getTime() > r.time && !todo.checked;
+        const isOverdue = r.hasDate && now.getTime() > r.time && !todo.checked && r.repeatType === 'none';
 
         let cycleStr = '';
         if (isOverdue) cycleStr = '已过期';
@@ -1233,7 +1233,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
     })();
 
     const metaText = getMetaInfo();
-    const isOverdue = todo.reminder && new Date().getTime() > todo.reminder.time;
+    const isOverdue = todo.reminder && todo.reminder.hasDate && new Date().getTime() > todo.reminder.time && !todo.checked && todo.reminder.repeatType === 'none';
 
     const renderMirrorContent = () => {
         const prefix = getPriorityPrefix() || '';
