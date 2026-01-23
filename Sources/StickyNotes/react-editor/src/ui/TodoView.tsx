@@ -30,7 +30,7 @@ export default function TodoView() {
     const pendingFocusKey = useRef<string | null>(null);
     const itemRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
-    const cleanupEmptyTodos = useCallback(() => {
+    const cleanupEmptyTodos = useCallback((forceIgnoreFocus: boolean = false) => {
         editor.update(() => {
             const listItems = $nodesOfType(ListItemNode);
             listItems.forEach(node => {
@@ -40,7 +40,7 @@ export default function TodoView() {
 
                 if (text === '') {
                     // Check if this node is currently focused
-                    const isFocused = Object.entries(itemRefs.current).some(([key, el]) => {
+                    const isFocused = !forceIgnoreFocus && Object.entries(itemRefs.current).some(([key, el]) => {
                         return el === document.activeElement && key === node.getKey();
                     });
 
@@ -450,7 +450,7 @@ export default function TodoView() {
 
     useEffect(() => {
         (window as any).setFilterMode = (mode: string) => {
-            cleanupEmptyTodos();
+            cleanupEmptyTodos(true); // Force cleanup when switching tabs
             setFilterMode(mode);
             displayedKeys.current.clear();
         };
@@ -535,7 +535,8 @@ export default function TodoView() {
         const handleGlobalMouseDown = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
             if (!target.closest('.todo-row') && !target.closest('.todo-details-panel') && !target.closest('.dropdown')) {
-                cleanupEmptyTodos();
+                // Use a small timeout to allow focus to shift before checking emptiness
+                setTimeout(() => cleanupEmptyTodos(), 100);
             }
         };
 
@@ -1067,27 +1068,27 @@ export default function TodoView() {
                 <div className="todo-subheader">
                     <div className="todo-subheader-row">
                         {isCompletedMode ? `${todos.length}条已完成事项` : `${todos.length}条待办事项`}
+                        {isCompletedMode && (
+                            <>
+                                <span className="dot-separator">&bull;</span>
+                                <DropDown
+                                    buttonLabel="清除"
+                                    buttonClassName="todo-clear-btn"
+                                    stopCloseOnClickSelf={true}
+                                    hideChevron={true}
+                                >
+                                    <DropDownItem className="item" onClick={() => clearCompletedTasks('1month')}>超过1个月</DropDownItem>
+                                    <DropDownItem className="item" onClick={() => clearCompletedTasks('6months')}>超过6个月</DropDownItem>
+                                    <DropDownItem className="item" onClick={() => clearCompletedTasks('1year')}>超过1年</DropDownItem>
+                                    <DropDownItem className="item" onClick={() => clearCompletedTasks('all')}>所有已完成事项</DropDownItem>
+                                </DropDown>
+                            </>
+                        )}
                     </div>
                     {hasChildlessRoots && (
                         <div className="todo-warning-msg">
                             未设置“子事项”的待办事项稍后会被移动到“全部待办事项”
                         </div>
-                    )}
-                    {isCompletedMode && (
-                        <>
-                            <span className="dot-separator">&bull;</span>
-                            <DropDown
-                                buttonLabel="清除"
-                                buttonClassName="todo-clear-btn"
-                                stopCloseOnClickSelf={true}
-                                hideChevron={true}
-                            >
-                                <DropDownItem className="item" onClick={() => clearCompletedTasks('1month')}>超过1个月</DropDownItem>
-                                <DropDownItem className="item" onClick={() => clearCompletedTasks('6months')}>超过6个月</DropDownItem>
-                                <DropDownItem className="item" onClick={() => clearCompletedTasks('1year')}>超过1年</DropDownItem>
-                                <DropDownItem className="item" onClick={() => clearCompletedTasks('all')}>所有已完成事项</DropDownItem>
-                            </DropDown>
-                        </>
                     )}
                 </div>
             </div>

@@ -2812,6 +2812,7 @@ textarea {
 /* Hide native title tooltip */
 .panel-preview-btn-circle[title] {
   -webkit-user-select: none;
+  user-select: none;
 }
 
 /* DateTime Icon Background */
