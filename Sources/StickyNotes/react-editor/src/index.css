@@ -2391,13 +2391,17 @@ textarea {
   /* Align with first line of multiline text */
   border-bottom: 1px solid var(--border-color);
   width: 100%;
-  gap: 16px;
+  gap: 8px;
   transition: background 0.2s;
   /* Original Layout Restoration */
   margin: 0 !important;
-  padding: 8px 12px !important;
-  /* Restore 8px vertical padding from git backup */
-  min-height: 40px;
+  padding: 7px 12px 7px !important;
+  /* Balanced 7px/7px padding - Move text UP from before */
+  min-height: 0 !important;
+  background: transparent !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  /* Visible Separator Debug */
+  /* Remove all height constraints */
   /* Restore min-height */
   height: auto !important;
   /* Restore auto height */
@@ -2411,8 +2415,8 @@ textarea {
 
 /* Todo info button and icon management */
 .info-btn {
-  width: 32px;
-  height: 32px;
+  width: 20px;
+  height: 20px;
   display: flex !important;
   align-items: center;
   justify-content: center;
@@ -2424,10 +2428,10 @@ textarea {
   background-color: transparent;
 }
 
-/* Background bubble shows when button hovered or row hovered */
+/* Background bubble removed - Match bell icon style */
 .info-btn:hover,
 .todo-row:hover .info-btn {
-  background-color: rgba(0, 122, 255, 0.1);
+  background-color: transparent !important;
 }
 
 /* Icons are hidden by default */
@@ -3041,25 +3045,28 @@ textarea {
 }
 
 
-/* Custom Circular Checkbox (Apple Style) */
 .todo-checkbox-wrapper {
   position: relative;
-  width: 18px;
-  height: 18px;
+  width: 22px !important;
+  height: 16px !important;
   flex-shrink: 0;
   display: flex;
   align-items: flex-start;
-  justify-content: center;
-  padding-top: 5.5px !important;
-  /* Precisely center with first line of 18px text in 27px line-height */
+  justify-content: flex-end !important;
+  padding-top: 0 !important;
+  /* Shift circle to top-right of the 22px red area */
+  background-color: transparent !important;
+  /* Visible Red Debug */
 }
 
 .todo-checkbox {
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 16px !important;
+  height: 16px !important;
   border: 1.5px solid #c7c7cc;
   border-radius: 50%;
+  transform: translateY(-2px) !important;
+  /* Move circle HIGHER into Cyan area */
   /* Perfect circle */
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -3113,9 +3120,7 @@ textarea {
 }
 
 /* Animated Strike-through */
-.todo-input-mirror-container {
-  position: relative;
-}
+/* Conflict removed to ensure single definition */
 
 /* Only animate fade away if NOT in completed mode */
 .todo-view:not(.completed-mode) .todo-row.completed .todo-input-mirror-container {
@@ -3326,12 +3331,7 @@ select:focus,
   color: #007aff;
 }
 
-.todo-checkbox-wrapper {
-  /* Align checkbox properly */
-  display: flex;
-  align-items: flex-start;
-  padding-top: 2px;
-}
+/* Consolidated into primary todo-checkbox-wrapper definition at line 3052 */
 
 /* Conflict removed to ensure single definition */
 
@@ -3340,8 +3340,15 @@ select:focus,
 .todo-meta-info {
   font-size: 11px;
   color: #8e8e93;
-  margin-top: 4px;
-  line-height: 1.2;
+  margin-top: 2px;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  background-color: transparent !important;
+  /* Visible Purple Debug */
+}
+
+.todo-meta-info:empty {
+  display: none !important;
 }
 
 .todo-meta-info.overdue {
@@ -3665,9 +3672,9 @@ select:focus,
 /* 1. Round Checkbox */
 .todo-checkbox {
   border-radius: 50% !important;
-  width: 18px !important;
-  height: 18px !important;
-  min-width: 18px;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px;
   appearance: none;
   -webkit-appearance: none;
   border: 1px solid #ccc;
@@ -3702,10 +3709,7 @@ select:focus,
 
 /* 2. Alignment */
 /* Ensure the delete button is vertically centered in the row, regardless of text height */
-.todo-row {
-  align-items: center;
-  /* This centers all children vertically by default */
-}
+/* Consolidated into primary todo-row definition at line 2388 */
 
 /* But we said previously we used flex-start for multi-line. 
    If text is multi-line, checkbox and icons are weird.
@@ -3717,11 +3721,12 @@ select:focus,
 
 
 .todo-input {
-  /* Ensure no huge margins */
-  margin-top: 0;
-  margin-bottom: 0;
-  padding-top: 4px;
-  padding-bottom: 4px;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
   /* Adjust padding to align text with icons */
 
 }
@@ -3826,10 +3831,12 @@ select:focus,
   display: flex;
   align-items: flex-start !important;
   gap: 4px;
-  padding-top: 5px !important;
-  /* Match checkbox alignment */
+  padding-top: 0 !important;
+  /* Propping padding-top removed - align with first line accurately */
   margin-left: auto !important;
   /* Anchor icons to the right side */
+  min-height: 0 !important;
+  height: auto !important;
 }
 
 /* Ensure delete button size is larger per request */
@@ -3933,7 +3940,7 @@ select:focus,
   /* User cannot drag resize */
   overflow: hidden;
   /* Hide scrollbar completely */
-  min-height: 24px;
+  min-height: 0 !important;
   height: auto;
   /* Allow auto-growth script to work */
   width: 100%;
@@ -3962,36 +3969,54 @@ select:focus,
 
 /* --- Mirror Auto-grow Technique --- */
 
+/* --- Mirror Auto-grow Technique (Robust Flow Version) --- */
+
 .todo-input-mirror-container {
-  display: grid;
-  width: 100%;
-  position: relative;
-  /* This container will naturally grow because of the mirror child */
+  display: block !important;
+  width: 100% !important;
+  position: relative !important;
+  min-height: 20px;
+  /* Minimum line height */
 }
 
-/* Share identical styles to ensure identical wrapping */
+/* Share identical styles to ensure identical wrapping and font layout */
 .todo-input,
 .todo-input-mirror {
-  grid-area: 1 / 1 / 2 / 2;
-  width: 100%;
+  width: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
   font-family: inherit;
-  font-size: 18px;
-  /* Standardized to 18px per user request */
-  line-height: 1.5;
-  border: none;
-  outline: none;
-  background: transparent;
-  white-space: pre-wrap;
-  word-break: break-word;
+  font-size: 16px;
+  line-height: 1.2 !important;
+  vertical-align: top;
   box-sizing: border-box;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  min-height: 0 !important;
+}
+
+.todo-input-mirror {
+  display: block !important;
+  height: auto !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .todo-input {
-  resize: none;
-  overflow: hidden;
+  display: block !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  /* Fill container from mirror growth */
+  resize: none !important;
+  overflow: hidden !important;
   color: inherit;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
 }
 
 /* --- Completed Mode Gray Styles --- */
@@ -4007,15 +4032,14 @@ select:focus,
   opacity: 0.5;
 }
 
-/* Ensure Row behaves well with growing content */
-/* Consolidated into primary todo-row definition */
-
-/* Padding handled in primary wrappers above */
-
 .todo-content-wrapper {
   overflow: visible !important;
-  display: flex;
-  flex-direction: column;
-  margin-top: 3px;
-  /* Align first line of text with checkbox circles */
+  display: block !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+  flex: 1;
+  min-width: 0 !important;
+  /* Crucial for flex-shrink and forced wrap */
+  height: auto !important;
 }

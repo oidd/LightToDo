@@ -1044,6 +1044,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
             if (r.repeatType === 'none' && (r.hasDate || r.hasTime)) cycleStr = '一次性';
         }
 
+        if (!cycleStr && !timeStr) return null;
         if (!cycleStr) return timeStr;
         if (!timeStr) return cycleStr;
         return `${timeStr}，${cycleStr}`;
@@ -1061,10 +1062,10 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
 
     const renderMirrorContent = () => {
         const prefix = getPriorityPrefix() || '';
-        const fullText = (prefix + (localText || " "));
+        const fullText = (prefix + (localText || ""));
 
         if (!highlightRange) {
-            return <>{fullText + "\n"}</>;
+            return <>{(fullText || '\u00A0') + "\n"}</>;
         }
 
         const start = highlightRange[0] + prefix.length;
@@ -1080,7 +1081,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
             <>
                 {before}
                 <span style={{ color: '#007aff' }}>{match}</span>
-                {after}
+                {after || (fullText === "" ? '\u00A0' : '')}
                 {"\n"}
             </>
         );
@@ -1099,9 +1100,11 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                 opacity: isClosing ? 0 : 1,
                 transition: 'opacity 0.3s ease-out, transform 0.3s ease-out, height 0.3s ease-out 0.1s, min-height 0.3s ease-out 0.1s, padding 0.3s ease-out 0.1s',
                 height: isClosing ? 0 : 'auto',
-                minHeight: isClosing ? 0 : 32,
-                paddingTop: isClosing ? 0 : 3,
-                paddingBottom: isClosing ? 0 : 6,
+                minHeight: 0,
+                paddingTop: isClosing ? 0 : 7,
+                paddingBottom: isClosing ? 0 : 7,
+                display: 'flex',
+                alignItems: 'flex-start',
                 overflow: 'hidden',
                 backgroundColor: isSelected ? 'rgba(0, 122, 255, 0.1)' : 'transparent'
             }}
@@ -1136,6 +1139,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                             if (registerRef) registerRef(todo.key, el);
                         }}
                         className="todo-input"
+                        rows={1}
                         data-priority={getPriorityPrefix() ? 'true' : 'false'}
                         value={(getPriorityPrefix() || '') + localText}
                         onChange={(e) => {
@@ -1166,7 +1170,6 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                             }
                         }}
                         onBlur={() => onTextChange(todo.key, localText)}
-                        rows={1}
                         placeholder="输入待办事项"
                         spellCheck={false}
                         readOnly={todo.checked || isCompletedMode}
