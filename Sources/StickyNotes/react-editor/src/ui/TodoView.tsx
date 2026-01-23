@@ -213,10 +213,12 @@ export default function TodoView() {
                             item.deadlineInvalid = true;
                         }
                     } else {
-                        // Orphaned sub-item, maybe treat as normal item or keep as is?
-                        // For now we treat it as normal if parent not found in current context,
-                        // but strictly speaking the data says it has a parent.
-                        // Let's keep isSubItem=true but it won't be attached to a parent in the view.
+                        // Orphaned sub-item: Parent is missing.
+                        // Heal it by treating it as a root item.
+                        item.isSubItem = false;
+                        delete item.parentKey;
+                        // Note: We don't update Lexical here to avoid recursive updates during read,
+                        // but it will be "fixed" in the view and can be deleted/modified by user.
                     }
                 }
             });
@@ -229,11 +231,11 @@ export default function TodoView() {
             });
 
             const counts = {
-                all: allItems.filter(t => !t.checked && !t.isSubItem).length, // Only count main items
-                today: allItems.filter(t => !t.checked && !t.isSubItem && t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday).length,
-                recurring: allItems.filter(t => !t.isSubItem && t.reminder && t.reminder.repeatType !== 'none').length,
-                important: allItems.filter(t => !t.checked && !t.isSubItem && t.reminder && t.reminder.priority !== 'none').length,
-                completed: allItems.filter(t => t.checked && !t.isSubItem).length
+                all: allItems.filter(t => !t.checked).length,
+                today: allItems.filter(t => !t.checked && t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday).length,
+                recurring: allItems.filter(t => !t.checked && t.reminder && t.reminder.repeatType !== 'none').length,
+                important: allItems.filter(t => !t.checked && t.reminder && t.reminder.priority !== 'none').length,
+                completed: allItems.filter(t => t.checked).length
             };
 
             if (window.webkit?.messageHandlers?.editor) {
@@ -246,63 +248,75 @@ export default function TodoView() {
                 window.webkit.messageHandlers.editor.postMessage({ type: 'reminders', data: reminders });
             }
 
-            // 2. Filter logic (Main items only first)
-            const strictMatches = allItems.filter(t => {
+            // 2. Filter logic (Identify matches for ALL items)
+            const strictMatches = new Set<string>();
+            allItems.forEach(t => {
+                let matches = false;
                 if (t.checked) {
-                    return filterMode === 'completed';
+                    matches = filterMode === 'completed';
+                } else {
+                    switch (filterMode) {
+                        case 'today':
+                            matches = !!(t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday);
+                            break;
+                        case 'recurring':
+                            matches = !!(t.reminder && t.reminder.repeatType !== 'none');
+                            break;
+                        case 'important':
+                            matches = !!(t.reminder && t.reminder.priority !== 'none');
+                            break;
+                        case 'completed':
+                            matches = false;
+                            break;
+                        case 'all':
+                        default:
+                            matches = true;
+                            break;
+                    }
                 }
-                switch (filterMode) {
-                    case 'today':
-                        return t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday;
-                    case 'recurring':
-                        return t.reminder && t.reminder.repeatType !== 'none';
-                    case 'important':
-                        return t.reminder && t.reminder.priority !== 'none';
-                    case 'completed':
-                        return false;
-                    case 'all':
-                    default:
-                        return true;
-                }
+                if (matches) strictMatches.add(t.key);
             });
 
-            strictMatches.forEach(t => displayedKeys.current.add(t.key));
+            // Search logic (further narrows/expands)
+            const searchQueryTrim = searchQuery.trim().toLowerCase();
+            const matchesSearch = (t: TodoItem) => !searchQueryTrim || t.text.toLowerCase().includes(searchQueryTrim);
 
-            let finalFiltered = allItems.filter(t => {
-                if (filterMode === 'completed') {
-                    return t.checked;
-                }
-                if (t.checked) return false;
-                const isStrict = strictMatches.some(m => m.key === t.key);
-                const isSticky = displayedKeys.current.has(t.key);
-                return isStrict || isSticky;
-            });
+            // Group Visibility logic:
+            // A group (Parent + its Children) is visible if:
+            // 1. Parent matches filter AND matches search
+            // 2. OR any Child matches filter AND matches search
+            const visibleKeys = new Set<string>();
 
-            const searchQueryTrim = searchQuery.trim();
-            if (searchQueryTrim) {
-                const lowerQuery = searchQueryTrim.toLowerCase();
-                finalFiltered = finalFiltered.filter(t => t.text.toLowerCase().includes(lowerQuery));
+            allItems.forEach(t => {
+                if (!t.isSubItem) {
+                    const parentMatches = strictMatches.has(t.key) && matchesSearch(t);
+                    const anyChildMatches = t.children?.some(c => strictMatches.has(c.key) && matchesSearch(c));
 
-                // Requirement: In 'All' mode, if a child matches search, parent must be shown
-                if (filterMode === 'all') {
-                    const visibleAtoms = new Set(finalFiltered.map(t => t.key));
-                    allItems.forEach(t => {
-                        if (t.isSubItem && t.parentKey && visibleAtoms.has(t.key)) {
-                            if (!visibleAtoms.has(t.parentKey)) {
-                                const parentItem = itemMap.get(t.parentKey);
-                                if (parentItem) {
-                                    finalFiltered.push(parentItem);
-                                    visibleAtoms.add(t.parentKey);
-                                }
+                    if (parentMatches || anyChildMatches) {
+                        visibleKeys.add(t.key); // Parent is visible
+                        // Children are potentially visible if they specifically match
+                        t.children?.forEach(c => {
+                            if (strictMatches.has(c.key) && matchesSearch(c)) {
+                                visibleKeys.add(c.key);
                             }
-                        }
-                    });
-                }
-            }
+                        });
 
-            const isAllMode = filterMode === 'all';
-            const rootItems = finalFiltered.filter(t => !t.isSubItem);
-            const itemsToSort = isAllMode ? rootItems : finalFiltered;
+                        // Special case: If we are in 'All' or 'Search' and the parent matched,
+                        // maybe we want all its children visible for context?
+                        // "Today/Important/Recurring" usually only show relevant items.
+                        if (filterMode === 'all' || searchQueryTrim) {
+                            t.children?.forEach(c => visibleKeys.add(c.key));
+                        }
+                    }
+                } else if (!t.parentKey) {
+                    // Orphaned sub-item behaving as root
+                    if (strictMatches.has(t.key) && matchesSearch(t)) {
+                        visibleKeys.add(t.key);
+                    }
+                }
+            });
+
+            const finalFiltered = allItems.filter(t => visibleKeys.has(t.key));
 
             const priorityMap: Record<string, number> = {
                 'high': 3, 'medium': 2, 'low': 1, 'none': 0
@@ -311,83 +325,69 @@ export default function TodoView() {
             const hasPriority = (t: TodoItem) => t.reminder && t.reminder.priority && t.reminder.priority !== 'none';
             const hasDateTime = (t: TodoItem) => t.reminder && (t.reminder.hasDate || t.reminder.hasTime);
 
-            const priorityItems: TodoItem[] = [];
-            const dateTimeItems: TodoItem[] = [];
-            const others: TodoItem[] = [];
+            // Sorting helper for all levels
+            const robustSort = (a: TodoItem, b: TodoItem) => {
+                // 1. Priority
+                const pA = priorityMap[a.reminder?.priority || 'none'];
+                const pB = priorityMap[b.reminder?.priority || 'none'];
+                if (pA !== pB) return pB - pA;
 
-            itemsToSort.forEach((t) => {
-                if (hasPriority(t)) {
-                    priorityItems.push(t);
-                } else if (hasDateTime(t)) {
-                    dateTimeItems.push(t);
-                } else {
-                    others.push(t);
-                }
-            });
-
-            // Simplified Sort Logic for Roots
-            const subSortByDeadline = (a: TodoItem, b: TodoItem) => {
+                // 2. Deadline (if valid)
                 const timeA = (a.reminder?.hasDate || a.reminder?.hasTime) ? (a.reminder?.time || 0) : 0;
                 const timeB = (b.reminder?.hasDate || b.reminder?.hasTime) ? (b.reminder?.time || 0) : 0;
                 if (timeA > 0 && timeB > 0) {
                     if (timeA !== timeB) return timeA - timeB;
                 } else if (timeA > 0) return -1;
                 else if (timeB > 0) return 1;
+
+                // 3. Document Index
                 return a.index - b.index;
             };
 
-            priorityItems.sort((a, b) => {
-                const pA = priorityMap[a.reminder!.priority];
-                const pB = priorityMap[b.reminder!.priority];
-                if (pA !== pB) return pB - pA;
-                if (sortMode === 'byDeadline') {
-                    return subSortByDeadline(a, b);
-                }
-                return a.index - b.index;
+            const rootItems = finalFiltered.filter(t => !t.isSubItem);
+
+            const priorityPool: TodoItem[] = [];
+            const dateTimePool: TodoItem[] = [];
+            const otherPool: TodoItem[] = [];
+
+            rootItems.forEach(t => {
+                if (hasPriority(t)) priorityPool.push(t);
+                else if (hasDateTime(t)) dateTimePool.push(t);
+                else otherPool.push(t);
             });
 
-            dateTimeItems.sort((a, b) => {
-                if (sortMode === 'byDeadline') {
-                    return subSortByDeadline(a, b);
-                }
-                return a.index - b.index;
-            });
+            priorityPool.sort(robustSort);
+            dateTimePool.sort(robustSort);
 
-            // Merge everything back while keeping 'others' in their original doc slots if possible
-            const result: TodoItem[] = new Array(itemsToSort.length);
-            const sortedPool = [...priorityItems, ...dateTimeItems];
-            const othersSet = new Set(others.map(t => t.key));
-            let poolIndex = 0;
+            // Merge roots
+            const sortedRoots: TodoItem[] = new Array(rootItems.length);
+            const othersSet = new Set(otherPool.map(t => t.key));
+            const sortedPool = [...priorityPool, ...dateTimePool];
+            let poolIdx = 0;
 
-            for (let i = 0; i < itemsToSort.length; i++) {
-                const item = itemsToSort[i];
+            for (let i = 0; i < rootItems.length; i++) {
+                const item = rootItems[i];
                 if (othersSet.has(item.key)) {
-                    result[i] = item;
+                    sortedRoots[i] = item;
                 } else {
-                    result[i] = sortedPool[poolIndex++];
+                    sortedRoots[i] = sortedPool[poolIdx++];
                 }
             }
 
             const finalFlatList: TodoItem[] = [];
+            sortedRoots.forEach(root => {
+                if (!root) return;
+                finalFlatList.push(root);
 
-            if (isAllMode) {
-                result.forEach(root => {
-                    if (root) {
-                        finalFlatList.push(root);
-                        if (root.children && root.children.length > 0) {
-                            if (sortMode === 'byDeadline') {
-                                const subs = [...root.children];
-                                subs.sort(subSortByDeadline);
-                                finalFlatList.push(...subs);
-                            } else {
-                                finalFlatList.push(...root.children);
-                            }
-                        }
+                if (root.children && root.children.length > 0) {
+                    const visibleChildren = root.children.filter(c => visibleKeys.has(c.key));
+                    if (visibleChildren.length > 0) {
+                        // Priority sort for children
+                        visibleChildren.sort(robustSort);
+                        finalFlatList.push(...visibleChildren);
                     }
-                });
-            } else {
-                result.forEach(t => t && finalFlatList.push(t));
-            }
+                }
+            });
 
             setTodos(finalFlatList);
         });
