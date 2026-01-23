@@ -2413,6 +2413,14 @@ textarea {
   background-color: rgba(0, 122, 255, 0.03);
 }
 
+.todo-row.selected {
+  background-color: rgba(0, 122, 255, 0.1) !important;
+}
+
+.todo-row.selected:hover {
+  background-color: rgba(0, 122, 255, 0.15) !important;
+}
+
 /* Todo info button and icon management */
 .info-btn {
   width: 20px;
