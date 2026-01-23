@@ -24,7 +24,9 @@ export interface ReminderData {
   hasReminder: boolean;
   hasDate: boolean;
   hasTime: boolean;
-  parentKey?: string; // Parent todo key - if set, this is a sub-item
+  uuid: string; // Unique ID for this specific reminder/todo
+  parentUuid?: string; // Parent todo UUID - if set, this is a sub-item
+  parentKey?: string; // Legacy: Parent todo key
 }
 
 export type SerializedReminderNode = Spread<
@@ -47,7 +49,11 @@ export class ReminderNode extends ElementNode {
 
   constructor(data: ReminderData, key?: NodeKey) {
     super(key);
-    this.__data = data;
+    // Ensure uuid exists for stability
+    this.__data = {
+      ...data,
+      uuid: data.uuid || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15)),
+    };
   }
 
   getData(): ReminderData {

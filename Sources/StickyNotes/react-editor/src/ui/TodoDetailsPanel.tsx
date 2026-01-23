@@ -17,6 +17,7 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
     const [time, setTime] = useState('');
     const [repeatType, setRepeatType] = useState<RepeatType>('none');
     const [priority, setPriority] = useState<'none' | 'low' | 'medium' | 'high'>('none');
+    const [uuid, setUuid] = useState('');
     const [reminderError, setReminderError] = useState('');
 
     // Expansion state for the combined DateTime picker
@@ -41,6 +42,7 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                     setDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
                     setTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
                 }
+                setUuid(initialData.uuid || crypto.randomUUID());
             } else {
                 setHasDateTime(false);
                 setHasReminder(false);
@@ -50,6 +52,7 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                 d.setHours(d.getHours() + 1, 0, 0, 0);
                 setDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
                 setTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+                setUuid(crypto.randomUUID());
             }
             // Reset expansion on open
             setIsDateTimeExpanded(false);
@@ -69,7 +72,8 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
             priority,
             hasReminder,
             hasDate: hasDateTime,
-            hasTime: hasDateTime
+            hasTime: hasDateTime,
+            uuid: uuid || crypto.randomUUID()
         });
     };
 

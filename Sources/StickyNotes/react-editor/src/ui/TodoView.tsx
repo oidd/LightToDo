@@ -10,10 +10,12 @@ import { useDateDetection, DateSuggestionPopup, DateDetectionResult } from './Da
 
 export interface TodoItem {
     key: string;
+    uuid: string;
     text: string;
     checked: boolean;
     reminder?: ReminderData;
-    parentKey?: string;
+    parentUuid?: string; // Stable parent ID
+    parentKey?: string; // Legacy: Parent node key
     children?: TodoItem[];
     isSubItem?: boolean;
     deadlineInvalid?: boolean;
@@ -167,6 +169,7 @@ export default function TodoView() {
 
                         allItems.push({
                             key: node.getKey(),
+                            uuid: reminder ? (reminder as ReminderData).uuid : '',
                             text: text,
                             checked: node.getChecked() || false,
                             reminder,
@@ -188,20 +191,34 @@ export default function TodoView() {
 
             // 1. First pass: Identify sub-items and populate extra fields
             allItems.forEach(item => {
-                if (item.reminder?.parentKey) {
+                if (item.reminder?.parentUuid) {
+                    item.parentUuid = item.reminder.parentUuid;
+                    item.isSubItem = true;
+                } else if (item.reminder?.parentKey) {
+                    // Legacy migration
                     item.parentKey = item.reminder.parentKey;
                     item.isSubItem = true;
                 }
             });
 
             // 1.1 Attach children to parents for counting and logical grouping
-            // We need a map to quickly find parents
-            const itemMap = new Map<string, TodoItem>();
-            allItems.forEach(item => itemMap.set(item.key, item));
+            // We need maps to find parents by UUID (stable) or Key (legacy)
+            const itemMap = new Map<string, TodoItem>(); // by uuid
+            const keyMap = new Map<string, TodoItem>(); // by lexical key
+            allItems.forEach(item => {
+                if (item.uuid) itemMap.set(item.uuid, item);
+                keyMap.set(item.key, item);
+            });
 
             allItems.forEach(item => {
-                if (item.isSubItem && item.parentKey) {
-                    const parent = itemMap.get(item.parentKey);
+                if (item.isSubItem) {
+                    let parent: TodoItem | undefined;
+                    if (item.parentUuid) {
+                        parent = itemMap.get(item.parentUuid);
+                    } else if (item.parentKey) {
+                        parent = keyMap.get(item.parentKey);
+                        // Potential migration path: if found by key, we could upgrade it later
+                    }
                     if (parent) {
                         if (!parent.children) parent.children = [];
                         parent.children.push(item);
@@ -235,6 +252,7 @@ export default function TodoView() {
                 today: allItems.filter(t => !t.checked && t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday).length,
                 recurring: allItems.filter(t => !t.checked && t.reminder && t.reminder.repeatType !== 'none').length,
                 important: allItems.filter(t => !t.checked && t.reminder && t.reminder.priority !== 'none').length,
+                planned: allItems.filter(t => !t.checked && (!t.isSubItem ? (t.children && t.children.length > 0) : true)).length,
                 completed: allItems.filter(t => t.checked).length
             };
 
@@ -264,6 +282,11 @@ export default function TodoView() {
                             break;
                         case 'important':
                             matches = !!(t.reminder && t.reminder.priority !== 'none');
+                            break;
+                        case 'planned':
+                            // Root matches if it has children, Child always matches if it exists (parents are already filtered in Group logic)
+                            // But for strict match calculation, we want items that explicitly count towards planned.
+                            matches = !t.isSubItem ? (t.children && t.children.length > 0) : true;
                             break;
                         case 'completed':
                             matches = false;
@@ -570,7 +593,8 @@ export default function TodoView() {
                             priority: 'none',
                             hasReminder: false,
                             hasDate: false,
-                            hasTime: false
+                            hasTime: false,
+                            uuid: crypto.randomUUID()
                         }));
                     }
                 }
@@ -717,7 +741,8 @@ export default function TodoView() {
                         hasReminder: false,
                         hasDate: false,
                         hasTime: false,
-                        originalTime: 0
+                        originalTime: 0,
+                        uuid: crypto.randomUUID()
                     }));
                 }
             }
@@ -727,9 +752,10 @@ export default function TodoView() {
     const getDefaultReminder = (mode: string): ReminderData | undefined => {
         const now = new Date();
         const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0).getTime();
-        if (mode === 'today') return { time: endOfToday, repeatType: 'none', originalTime: endOfToday, priority: 'none', hasReminder: false, hasDate: true, hasTime: true };
-        if (mode === 'important') return { time: 0, repeatType: 'none', originalTime: 0, priority: 'medium', hasReminder: false, hasDate: false, hasTime: false };
-        if (mode === 'recurring') return { time: endOfToday, repeatType: 'daily', originalTime: endOfToday, priority: 'none', hasReminder: false, hasDate: true, hasTime: true };
+        const uuid = crypto.randomUUID();
+        if (mode === 'today') return { time: endOfToday, repeatType: 'none', originalTime: endOfToday, priority: 'none', hasReminder: false, hasDate: true, hasTime: true, uuid };
+        if (mode === 'important') return { time: 0, repeatType: 'none', originalTime: 0, priority: 'medium', hasReminder: false, hasDate: false, hasTime: false, uuid };
+        if (mode === 'recurring') return { time: endOfToday, repeatType: 'daily', originalTime: endOfToday, priority: 'none', hasReminder: false, hasDate: true, hasTime: true, uuid };
         return undefined;
     };
 
@@ -749,8 +775,11 @@ export default function TodoView() {
 
         // Prevent 3-level nesting: Check if any selected item ALREADY has children.
         // If an item has children, it cannot become a sub-item.
-        const keysWithChildren = new Set(todos.filter(t => t.parentKey).map(t => t.parentKey));
-        const hasChildren = keysToConvert.some(key => keysWithChildren.has(key));
+        const keysWithChildren = new Set(todos.filter(t => t.parentUuid || t.parentKey).map(t => t.parentUuid || t.parentKey));
+        const hasChildren = keysToConvert.some(key => {
+            const item = todos.find(t => t.key === key);
+            return item && keysWithChildren.has(item.uuid);
+        });
         if (hasChildren) {
             // Maybe notify user? For now just return.
             return;
@@ -765,18 +794,19 @@ export default function TodoView() {
 
                     if (reminderNode) {
                         const data = reminderNode.getData();
-                        reminderNode.setData({ ...data, parentKey: parentTodo.key });
+                        reminderNode.setData({ ...data, parentUuid: parentTodo.uuid });
                     } else {
                         // Should rare, but create one if missing
                         node.append($createReminderNode({
                             time: 0,
                             repeatType: 'none',
-                            parentKey: parentTodo.key,
+                            parentUuid: parentTodo.uuid,
                             originalTime: 0,
                             priority: 'none',
                             hasReminder: false,
                             hasDate: false,
-                            hasTime: false
+                            hasTime: false,
+                            uuid: crypto.randomUUID()
                         }));
                     }
                 }
@@ -797,6 +827,7 @@ export default function TodoView() {
                         const data = reminderNode.getData();
                         const newData = { ...data };
                         delete newData.parentKey;
+                        delete newData.parentUuid;
                         reminderNode.setData(newData);
                     }
                 }
@@ -814,6 +845,7 @@ export default function TodoView() {
 
     const handleEnter = (key: string) => {
         const currentTodo = todos.find(t => t.key === key);
+        const parentUuid = currentTodo?.parentUuid;
         const parentKey = currentTodo?.parentKey;
 
         editor.update(() => {
@@ -824,24 +856,27 @@ export default function TodoView() {
 
                 // Inherit parentKey if valid
                 const defaultReminder = getDefaultReminder(filterMode);
-                const reminderData = defaultReminder || {
-                    time: 0,
-                    repeatType: 'none',
-                    originalTime: 0,
-                    priority: 'none',
-                    hasReminder: false,
-                    hasDate: false,
-                    hasTime: false
+                const reminderData: any = {
+                    ...(defaultReminder || {
+                        time: 0,
+                        repeatType: 'none',
+                        originalTime: 0,
+                        priority: 'none',
+                        hasReminder: false,
+                        hasDate: false,
+                        hasTime: false,
+                    }),
+                    uuid: crypto.randomUUID()
                 };
 
-                if (parentKey) {
+                if (parentUuid || parentKey) {
+                    reminderData.parentUuid = parentUuid;
                     reminderData.parentKey = parentKey;
                     // Sub-tasks forced to repeatType: 'none' per requirements?
-                    // User said: "所有的重复性都是“一次性”且不可修改" -> So enforce none
                     reminderData.repeatType = 'none';
                 }
 
-                newNode.append($createReminderNode(reminderData));
+                newNode.append($createReminderNode(reminderData as ReminderData));
                 node.insertAfter(newNode);
                 pendingFocusKey.current = newNode.getKey();
             }
@@ -878,14 +913,17 @@ export default function TodoView() {
             const node = $getNodeByKey(dialogTargetKey);
             if ($isListItemNode(node)) {
                 const children = node.getChildren();
+                let existingParentUuid: string | undefined;
                 let existingParentKey: string | undefined;
                 children.forEach(c => {
                     if ($isReminderNode(c)) {
-                        existingParentKey = c.getData().parentKey;
+                        const d = c.getData();
+                        existingParentUuid = d.parentUuid;
+                        existingParentKey = d.parentKey;
                         c.remove();
                     }
                 });
-                node.append($createReminderNode({ ...data, parentKey: existingParentKey }));
+                node.append($createReminderNode({ ...data, parentUuid: existingParentUuid, parentKey: existingParentKey }));
             }
         });
     };
@@ -946,6 +984,7 @@ export default function TodoView() {
         today: { text: '今天', color: '#08bcff' },
         recurring: { text: '周期', color: '#ff3b30' },
         important: { text: '重要', color: '#ff8d30' },
+        planned: { text: '计划', color: '#f7cb00' },
         completed: { text: '完成', color: '#8e8e93' }
     };
     const currentHeader = headerConfig[filterMode] || headerConfig['all'];

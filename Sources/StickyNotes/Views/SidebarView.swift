@@ -208,7 +208,7 @@ struct SidebarView: View {
                     }
                 }
                 
-                // Bottom Row: Recurring & Completed
+                // Row 3: Recurring & Planned
                 HStack(spacing: 12) {
                     StatButton(
                         mode: .recurring,
@@ -223,6 +223,21 @@ struct SidebarView: View {
                     }
                     
                     StatButton(
+                        mode: .planned,
+                        title: "计划",
+                        iconName: "计划",
+                        count: notesManager.todoCounts["planned"] ?? 0,
+                        color: Color(hex: "#f7cb00"), // Updated Yellow
+                        isWide: false,
+                        isSelected: notesManager.currentFilter == .planned
+                    ) {
+                        notesManager.currentFilter = .planned
+                    }
+                }
+                
+                // Row 4: Completed (Single)
+                HStack(spacing: 12) {
+                    StatButton(
                         mode: .completed,
                         title: "完成",
                         iconName: "完成",
@@ -233,6 +248,7 @@ struct SidebarView: View {
                     ) {
                         notesManager.currentFilter = .completed
                     }
+                    Spacer()
                 }
             }
             .padding(.horizontal, 15)
@@ -270,8 +286,8 @@ struct StatButton: View {
                             .renderingMode(.template)
                             .aspectRatio(contentMode: .fit)
                             .frame(
-                                width: mode == .completed ? 25 : 22, // Simplified width logic
-                                height: mode == .completed ? 25 : 22
+                                width: mode == .planned ? 30 : (mode == .completed ? 25 : 22),
+                                height: mode == .planned ? 30 : (mode == .completed ? 25 : 22)
                             )
                             .foregroundColor(.white)
                             .offset(y: 1.5) // Standardize offset to 1.5 for all icons to move Completed UP
