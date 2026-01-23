@@ -40,6 +40,31 @@ export default function TodoView() {
     const [ringingBells, setRingingBells] = useState<Set<string>>(new Set());
     const bellTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
+    // Focus inputs on right-click (context menu) to ensure native menu works (Cut/Copy/Paste/Services)
+    // and that deleteFocusedTodo knows which item to delete.
+    useEffect(() => {
+        const handleContextMenu = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            // Detect if we clicked anywhere inside a todo row
+            const todoRow = target.closest('.todo-row');
+            if (todoRow) {
+                const textarea = todoRow.querySelector('textarea.todo-input') as HTMLElement;
+                if (textarea) {
+                    // Force focus on the textarea so native menu operations work
+                    if (document.activeElement !== textarea) {
+                        textarea.focus();
+
+                        // Optional: Reset selection to end if clicking outside text?
+                        // For now just focus is enough to enable the menu.
+                    }
+                }
+            }
+        };
+
+        document.addEventListener('contextmenu', handleContextMenu);
+        return () => document.removeEventListener('contextmenu', handleContextMenu);
+    }, []);
+
     const updateTodos = useCallback(() => {
         editor.getEditorState().read(() => {
             const allItems: TodoItem[] = [];
@@ -830,8 +855,14 @@ export default function TodoView() {
                                 if (lastListItem) {
                                     const newNode = $createListItemNode();
                                     newNode.setChecked(false);
-                                    // 不为空白区域创建的草稿设置默认 reminder
-                                    // 这样它就会被视为"固定"项，留在底部
+
+                                    // Apply default reminder based on current filter mode
+                                    // so the new item appears in the current filtered view
+                                    const defaultReminder = getDefaultReminder(filterMode);
+                                    if (defaultReminder) {
+                                        newNode.append($createReminderNode(defaultReminder));
+                                    }
+
                                     lastListItem.insertAfter(newNode);
                                     pendingFocusKey.current = newNode.getKey();
                                 } else {

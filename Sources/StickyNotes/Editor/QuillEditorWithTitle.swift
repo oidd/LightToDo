@@ -19,11 +19,11 @@ class ClickableWebView: WKWebView {
     }
     
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
-        // 1. 定义需要移除的菜单项关键词 (黑名单)
-        // 移除：查询、搜索、语音、段落方向、共享、自动填充、服务、拼写和语法、转换、选择方向、替换、字体、对齐、列表
+        // 1. 定义需要移除的菜单项关键词
+        // 移除：浏览器导航、拼写语法、替换、转换、字体、语音、方向等
         let unwantedKeywords = [
-            "查询", "搜索", "语音", "段落方向", "共享", "自动填充", "服务",
-            "拼写", "语法", "转换", "选择方向", "替换", "字体", "对齐", "列表"
+            "重新载入", "返回", "前进", "停止", "在", "在新窗口中打开",
+            "拼写", "语法", "替换", "转换", "字体", "语音", "段落方向", "选择方向"
         ]
         
         // 2. 过滤现有菜单项
@@ -31,13 +31,12 @@ class ClickableWebView: WKWebView {
         
         for item in menu.items {
             if item.isSeparatorItem {
-                // 智能分隔符处理：如果上一个也是分隔符，或者列表为空，则忽略当前分隔符（去重）
                 if let last = newItems.last, !last.isSeparatorItem {
                     newItems.append(item)
                 }
             } else {
                 let title = item.title
-                // 如果标题包含任意黑名单关键词，则移除
+                // 仅移除浏览器导航相关项
                 let isUnwanted = unwantedKeywords.contains { title.contains($0) }
                 if !isUnwanted {
                     newItems.append(item)
@@ -45,21 +44,20 @@ class ClickableWebView: WKWebView {
             }
         }
         
-        // 移除末尾多余的分隔符 (如果过滤后最后一个是分隔符)
+        // 移除末尾多余的分隔符
         if let last = newItems.last, last.isSeparatorItem {
             newItems.removeLast()
         }
         
-        // 3. 添加"删除"菜单项 (仅在待办模式下)
+        // 3. 添加"删除"菜单项
         let deleteItem = NSMenuItem(title: "删除", action: #selector(deleteFocusedTodo(_:)), keyEquivalent: "")
         deleteItem.target = self
-        // 添加垃圾桶图标以对齐其他菜单项
         if let trashImage = NSImage(systemSymbolName: "trash", accessibilityDescription: "删除") {
             trashImage.isTemplate = true
             deleteItem.image = trashImage
         }
         
-        // 如果有其他菜单项，添加分隔符然后添加删除
+        // 添加分隔符然后添加删除
         if !newItems.isEmpty {
             newItems.append(NSMenuItem.separator())
         }

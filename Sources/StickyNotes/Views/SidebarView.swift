@@ -259,21 +259,22 @@ struct StatButton: View {
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .center) { // Center icons with numbers
+                // Fixed Height Top Row: Enforce 32px height for all tabs to ensure consistent layout
+                HStack(alignment: .center) {
                     // Top Left: Icon
                     if mode == .today {
                         TodayIconView(iconName: iconName)
                     } else if let nsImage = loadSVG(named: iconName) {
                         Image(nsImage: nsImage)
                             .resizable()
-                            .renderingMode(.template) 
+                            .renderingMode(.template)
                             .aspectRatio(contentMode: .fit)
                             .frame(
-                                width: mode == .completed ? 25 : (mode == .recurring || mode == .important || mode == .today) ? 22 : 28,
-                                height: mode == .completed ? 25 : (mode == .recurring || mode == .important || mode == .today) ? 22 : 28
+                                width: mode == .completed ? 25 : 22, // Simplified width logic
+                                height: mode == .completed ? 25 : 22
                             )
                             .foregroundColor(.white)
-                            .offset(y: 1.5) // Move DOWN to align with number baseline
+                            .offset(y: 1.5) // Standardize offset to 1.5 for all icons to move Completed UP
                     }
                     
                     Spacer()
@@ -281,21 +282,22 @@ struct StatButton: View {
                     // Top Right: Count
                     if mode != .completed {
                         Text("\(count)")
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.system(size: 26, weight: .bold))
                             .foregroundColor(.white)
                     }
                 }
-                .padding(.top, 10)
+                .frame(height: 32)
+                .padding(.top, 6)
                 .padding(.horizontal, 10)
                 
-                Spacer()
+                Spacer(minLength: 0)
                 
                 // Bottom Left: Title
                 Text(title)
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.white)
                     .opacity(0.9)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, 10)
                     .padding(.horizontal, 10)
             }
             .frame(width: isWide ? 190 : 89, height: 68)
@@ -304,7 +306,7 @@ struct StatButton: View {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(color)
                     
-                    // Subtle Gradient Overlay (Top-Left to Bottom-Right)
+                    // Subtle Gradient Overlay
                     RoundedRectangle(cornerRadius: 12)
                         .fill(
                             LinearGradient(
