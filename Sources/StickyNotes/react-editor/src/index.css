@@ -2281,12 +2281,35 @@ textarea {
 
 .todo-subheader {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   font-size: 13px;
   color: #8e8e93;
   margin-top: 2px;
   font-weight: normal;
   letter-spacing: -0.1px;
+}
+
+.todo-subheader-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.todo-warning-msg {
+  color: #ff3b30;
+  font-size: 11px;
+  margin-top: 0px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  font-weight: 500;
+  display: block;
+  line-height: 1.1;
+  /* Prevent height increase if possible */
+  height: 0;
+  overflow: visible;
 }
 
 .dot-separator {

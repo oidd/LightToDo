@@ -1030,11 +1030,13 @@ export default function TodoView() {
             <div className="todo-header" style={{ color: currentHeader.color }}>
                 {currentHeader.text}
                 <div className="todo-subheader">
-                    {isCompletedMode ? `${todos.length}条已完成事项` : `${todos.length}条待办事项`}
+                    <div className="todo-subheader-row">
+                        {isCompletedMode ? `${todos.length}条已完成事项` : `${todos.length}条待办事项`}
+                    </div>
                     {hasChildlessRoots && (
-                        <span style={{ color: '#ff3b30', marginLeft: 8, fontWeight: 'normal' }}>
+                        <div className="todo-warning-msg">
                             未设置“子事项”的待办事项稍后会被移动到“全部待办事项”
-                        </span>
+                        </div>
                     )}
                     {isCompletedMode && (
                         <>
