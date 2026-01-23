@@ -2655,6 +2655,140 @@ textarea {
   justify-content: center;
 }
 
+/* New Combined DateTime Picker */
+.panel-datetime-picker {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(0, 122, 255, 0.05);
+  border-radius: 12px;
+  margin: 8px 16px;
+}
+
+.datetime-picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.datetime-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  min-width: 40px;
+}
+
+.datetime-input {
+  flex: 1;
+  max-width: 180px;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #007aff;
+  outline: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s ease;
+}
+
+.datetime-input:focus {
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+.datetime-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.datetime-confirm-btn {
+  background: none;
+  border: none;
+  color: #007aff;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.datetime-confirm-btn:hover {
+  background: rgba(0, 122, 255, 0.1);
+}
+
+.datetime-confirm-btn:active {
+  background: rgba(0, 122, 255, 0.2);
+}
+
+/* Circular Preview Button - matches switch height */
+.panel-preview-btn-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(0, 122, 255, 0.1);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #007aff;
+  transition: background 0.15s ease, transform 0.15s ease;
+  margin-right: 8px;
+  position: relative;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.panel-preview-btn-circle:hover {
+  background: rgba(0, 122, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.panel-preview-btn-circle:active {
+  transform: scale(0.95);
+}
+
+/* Custom instant tooltip */
+.panel-preview-btn-circle::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s ease;
+  margin-bottom: 4px;
+}
+
+.panel-preview-btn-circle:hover::after {
+  opacity: 1;
+}
+
+/* Hide native title tooltip */
+.panel-preview-btn-circle[title] {
+  -webkit-user-select: none;
+}
+
+/* DateTime Icon Background */
+.datetime-bg {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff9f43 100%);
+}
+
+.calendar-clock-icon::before {
+  content: "📅";
+  font-size: 16px;
+}
+
 .apple-date-picker,
 .apple-time-picker {
   border: none;

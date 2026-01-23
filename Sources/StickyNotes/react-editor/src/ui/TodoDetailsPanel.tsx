@@ -11,8 +11,7 @@ interface TodoDetailsPanelProps {
 }
 
 export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave }: TodoDetailsPanelProps) {
-    const [hasDate, setHasDate] = useState(false);
-    const [hasTime, setHasTime] = useState(false);
+    const [hasDateTime, setHasDateTime] = useState(false);
     const [hasReminder, setHasReminder] = useState(false);
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
@@ -20,15 +19,14 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
     const [priority, setPriority] = useState<'none' | 'low' | 'medium' | 'high'>('none');
     const [reminderError, setReminderError] = useState('');
 
-    // Expansion states
-    const [isDateExpanded, setIsDateExpanded] = useState(false);
-    const [isTimeExpanded, setIsTimeExpanded] = useState(false);
+    // Expansion state for the combined DateTime picker
+    const [isDateTimeExpanded, setIsDateTimeExpanded] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
-                setHasDate(initialData.hasDate || false);
-                setHasTime(initialData.hasTime || false);
+                const hasAny = initialData.hasDate || initialData.hasTime || false;
+                setHasDateTime(hasAny);
                 setHasReminder(initialData.hasReminder || false);
                 setPriority(initialData.priority || 'none');
                 setRepeatType(initialData.repeatType || 'none');
@@ -44,8 +42,7 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                     setTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
                 }
             } else {
-                setHasDate(false);
-                setHasTime(false);
+                setHasDateTime(false);
                 setHasReminder(false);
                 setPriority('none');
                 setRepeatType('none');
@@ -54,6 +51,8 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                 setDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
                 setTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
             }
+            // Reset expansion on open
+            setIsDateTimeExpanded(false);
         }
     }, [isOpen, initialData]);
 
@@ -69,8 +68,8 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
             originalTime: timestamp,
             priority,
             hasReminder,
-            hasDate,
-            hasTime
+            hasDate: hasDateTime,
+            hasTime: hasDateTime
         });
     };
 
@@ -79,15 +78,20 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
         if (isOpen) {
             handleSave();
         }
-    }, [hasReminder, hasDate, hasTime, date, time, repeatType, priority]);
+    }, [hasReminder, hasDateTime, date, time, repeatType, priority]);
 
     if (!isOpen) return null;
 
     const formatDateDisplay = (dateStr: string) => {
         if (!dateStr) return '';
         const d = new Date(dateStr);
-        const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
-        return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${weekdays[d.getDay()]}`;
+        const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        return `${d.getMonth() + 1}月${d.getDate()}日 ${weekdays[d.getDay()]}`;
+    };
+
+    const formatTimeDisplay = (timeStr: string) => {
+        if (!timeStr) return '';
+        return timeStr;
     };
 
     const getRepeatOptions = () => {
@@ -107,134 +111,74 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
         ];
     };
 
-    // Handle close: auto-complete date/time if only one is set
+    // Handle close: auto-complete if needed
     const handleClose = () => {
-        let finalHasDate = hasDate;
-        let finalHasTime = hasTime;
-        let finalDate = date;
-        let finalTime = time;
-
-        // If time is on but date is off, auto-enable date with today's value
-        if (hasTime && !hasDate) {
-            const today = new Date();
-            finalDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-            finalHasDate = true;
-            setHasDate(true);
-            setDate(finalDate);
-        }
-
-        // If date is on but time is off, auto-enable time with 23:59
-        if (hasDate && !hasTime) {
-            finalTime = '23:59';
-            finalHasTime = true;
-            setHasTime(true);
-            setTime(finalTime);
-        }
-
-        // Save with the updated values if any auto-completion happened
-        if ((hasTime && !hasDate) || (hasDate && !hasTime)) {
-            let timestamp = 0;
-            if (finalDate && finalTime) {
-                timestamp = new Date(`${finalDate}T${finalTime}:00`).getTime();
-            }
-            onSave({
-                time: timestamp,
-                repeatType,
-                originalTime: timestamp,
-                priority,
-                hasReminder,
-                hasDate: finalHasDate,
-                hasTime: finalHasTime
-            });
-        }
         onClose();
+    };
+
+    // Confirm button handler for DateTime picker
+    const handleDateTimeConfirm = () => {
+        setIsDateTimeExpanded(false);
     };
 
     return (
         <div className="todo-details-panel-overlay" onClick={handleClose}>
             <div className="todo-details-panel apple-style" onClick={e => e.stopPropagation()}>
-                {/* Date Section */}
-                <div className={`panel-section ${isDateExpanded ? 'expanded' : ''}`}>
-                    <div className="panel-row clickable" onClick={() => hasDate && setIsDateExpanded(!isDateExpanded)}>
-                        <div className="panel-icon-box date-bg">
-                            <span className="panel-icon calendar-icon"></span>
+                {/* Combined Date & Time Section */}
+                <div className={`panel-section ${isDateTimeExpanded ? 'expanded' : ''}`}>
+                    <div className="panel-row clickable" onClick={() => hasDateTime && setIsDateTimeExpanded(!isDateTimeExpanded)}>
+                        <div className="panel-icon-box datetime-bg">
+                            <span className="panel-icon calendar-clock-icon"></span>
                         </div>
                         <div className="panel-label-group">
-                            <span className="panel-label">日期</span>
-                            {hasDate && (
-                                <span className="panel-sub-label" style={{ display: isDateExpanded ? 'none' : 'block' }}>
-                                    {formatDateDisplay(date)}
+                            <span className="panel-label">日期与时间</span>
+                            {hasDateTime && !isDateTimeExpanded && (
+                                <span className="panel-sub-label">
+                                    {formatDateDisplay(date)} {formatTimeDisplay(time)}
                                 </span>
                             )}
                         </div>
                         <Switch
                             text=""
-                            checked={hasDate}
+                            checked={hasDateTime}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                const newState = !hasDate;
-                                setHasDate(newState);
-                                if (newState) setIsDateExpanded(true);
+                                const newState = !hasDateTime;
+                                setHasDateTime(newState);
+                                if (newState) setIsDateTimeExpanded(true);
                                 else {
-                                    setIsDateExpanded(false);
+                                    setIsDateTimeExpanded(false);
                                     setHasReminder(false);
                                     setReminderError('');
                                 }
                             }}
                         />
                     </div>
-                    {hasDate && isDateExpanded && (
-                        <div className="panel-expanded-picker">
-                            <input
-                                type="date"
-                                autoFocus
-                                className="apple-date-picker"
-                                value={date}
-                                onChange={e => setDate(e.target.value)}
-                            />
-                        </div>
-                    )}
-                </div>
-
-                {/* Time Section */}
-                <div className={`panel-section ${isTimeExpanded ? 'expanded' : ''}`}>
-                    <div className="panel-row clickable" onClick={() => hasTime && setIsTimeExpanded(!isTimeExpanded)}>
-                        <div className="panel-icon-box time-bg">
-                            <span className="panel-icon clock-icon"></span>
-                        </div>
-                        <div className="panel-label-group">
-                            <span className="panel-label">时间</span>
-                            {hasTime && (
-                                <span className="panel-sub-label" style={{ display: isTimeExpanded ? 'none' : 'block' }}>
-                                    {time}
-                                </span>
-                            )}
-                        </div>
-                        <Switch
-                            text=""
-                            checked={hasTime}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                const newState = !hasTime;
-                                setHasTime(newState);
-                                if (newState) setIsTimeExpanded(true);
-                                else {
-                                    setIsTimeExpanded(false);
-                                    setHasReminder(false);
-                                    setReminderError('');
-                                }
-                            }}
-                        />
-                    </div>
-                    {hasTime && isTimeExpanded && (
-                        <div className="panel-expanded-picker">
-                            <input
-                                type="time"
-                                autoFocus
-                                className="apple-time-picker"
-                                value={time}
-                                onChange={e => setTime(e.target.value)}
-                            />
+                    {hasDateTime && isDateTimeExpanded && (
+                        <div className="panel-datetime-picker">
+                            <div className="datetime-picker-row">
+                                <label className="datetime-label">日期</label>
+                                <input
+                                    type="date"
+                                    className="datetime-input"
+                                    value={date}
+                                    onChange={e => setDate(e.target.value)}
+                                />
+                            </div>
+                            <div className="datetime-picker-row">
+                                <label className="datetime-label">时间</label>
+                                <input
+                                    type="time"
+                                    className="datetime-input"
+                                    value={time}
+                                    onChange={e => setTime(e.target.value)}
+                                />
+                            </div>
+                            <div className="datetime-footer">
+                                <button className="datetime-confirm-btn" onClick={handleDateTimeConfirm}>
+                                    确定
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -252,33 +196,31 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                             )}
                         </div>
                         <div className="panel-actions">
-                            <button
-                                className="panel-preview-btn"
-                                title="预览提醒效果"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (!hasDate || !hasTime) {
-                                        setReminderError('请先设置日期和时间');
-                                        return;
-                                    }
-                                    setReminderError('');
-                                    if (window.webkit?.messageHandlers?.editor) {
-                                        window.webkit.messageHandlers.editor.postMessage({ type: 'previewReminder' });
-                                    }
-                                }}
-                            >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M8 5v14l11-7z" />
-                                </svg>
-                            </button>
+                            {hasReminder && (
+                                <button
+                                    className="panel-preview-btn-circle"
+                                    title="预览提醒效果"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (window.webkit?.messageHandlers?.editor) {
+                                            window.webkit.messageHandlers.editor.postMessage({ type: 'previewReminder' });
+                                        }
+                                    }}
+                                >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M8 5v14l11-7z" />
+                                    </svg>
+                                </button>
+                            )}
                             <Switch
                                 text=""
                                 checked={hasReminder}
                                 onClick={() => {
                                     if (!hasReminder) {
-                                        // Trying to enable reminder - check if date and time are set
-                                        if (!hasDate || !hasTime) {
+                                        if (!hasDateTime) {
                                             setReminderError('请先设置日期和时间');
+                                            // Auto-clear after 2 seconds
+                                            setTimeout(() => setReminderError(''), 2000);
                                             return;
                                         }
                                     }
