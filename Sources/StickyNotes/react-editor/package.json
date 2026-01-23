@@ -22,6 +22,7 @@
     "@lexical/table": "^0.39.0",
     "@lexical/utils": "^0.39.0",
     "lexical": "^0.39.0",
+    "ogl": "^1.0.11",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

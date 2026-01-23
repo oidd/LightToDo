@@ -411,6 +411,16 @@ struct QuillEditor: NSViewRepresentable {
                 guard let self = self, let todoKey = notification.object as? String else { return }
                 self.webView?.evaluateJavaScript("window.triggerBellAnimation && window.triggerBellAnimation('\(todoKey)')") { _, _ in }
             }
+            
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("ShowReminderRays"), object: nil, queue: .main) { [weak self] notification in
+                guard let self = self, let dict = notification.object as? [String: String],
+                      let edge = dict["edge"], let color = dict["color"] else { return }
+                self.webView?.evaluateJavaScript("window.showReminderRays && window.showReminderRays('\(edge)', '\(color)')") { _, _ in }
+            }
+            
+            NotificationCenter.default.addObserver(forName: NSNotification.Name("HideReminderRays"), object: nil, queue: .main) { [weak self] _ in
+                self?.webView?.evaluateJavaScript("window.hideReminderRays && window.hideReminderRays()") { _, _ in }
+            }
         }
     }
 }

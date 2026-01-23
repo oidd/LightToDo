@@ -1,16 +1,33 @@
 import AppKit
 import SwiftUI
 
-/// Full-screen transparent window for wave/ripple animation
+/// Full-screen transparent window for breathing glow with dome effect and expanding rings
 class RippleOverlayWindow: NSPanel {
-    private var rippleLayer: CALayer?
-    private var rippleLayers: [CAShapeLayer] = []
-    private var animationTimer: Timer?
-    private var isAnimating = false
+    private var baseGlowLayer: CAGradientLayer?
+    private var coreLayer: CAGradientLayer?
     
-    private var edgePosition: SnapEdge = .left
+    private var cycleTimer: Timer?
+    private var ringTimer: Timer?
+    private var isAnimating = false
+    private var currentEdge: SnapEdge = .right
+    
+    // Settings
+    private let coreRadius: CGFloat = 65
+    private let baseGlowRadius: CGFloat = 130
+    
     private var indicatorFrame: NSRect = .zero
-    private var rippleColor: NSColor = NSColor.orange
+
+    private var screenWidth: CGFloat { self.frame.width }
+    private var screenHeight: CGFloat { self.frame.height }
+    private var centerY: CGFloat {
+        // If indicatorFrame is set (non-zero height), use its center. Otherwise default to screen center.
+        if indicatorFrame.height > 0 {
+            // Adjust for screen origin if needed, but usually main screen starts at 0.
+            // Assuming window covers the screen exactly.
+            return indicatorFrame.midY
+        }
+        return screenHeight / 2
+    }
     
     init() {
         super.init(
@@ -20,14 +37,17 @@ class RippleOverlayWindow: NSPanel {
             defer: false
         )
         
-        self.level = .screenSaver // Above most windows
+        self.level = .screenSaver
         self.backgroundColor = .clear
         self.isOpaque = false
         self.hasShadow = false
-        self.ignoresMouseEvents = true // Click-through
+        self.ignoresMouseEvents = true
         self.collectionBehavior = [.canJoinAllSpaces, .transient, .fullScreenAuxiliary]
         
-        // Setup content view with layer
+        setupContentView()
+    }
+    
+    private func setupContentView() {
         let hostView = NSView(frame: self.frame)
         hostView.wantsLayer = true
         hostView.layer?.backgroundColor = NSColor.clear.cgColor
@@ -36,194 +56,353 @@ class RippleOverlayWindow: NSPanel {
     
     // MARK: - Public API
     
-    /// Start ripple animation from the edge indicator
     func startRipple(edge: SnapEdge, indicatorFrame: NSRect, color: NSColor) {
         guard !isAnimating else { return }
         
-        self.edgePosition = edge
+        self.currentEdge = edge
         self.indicatorFrame = indicatorFrame
-        self.rippleColor = color
         self.isAnimating = true
         
-        // Update frame to cover the screen
         if let screen = NSScreen.main {
             self.setFrame(screen.frame, display: true)
         }
         
-        self.orderFront(nil)
+        self.alphaValue = 1.0
+        self.makeKeyAndOrderFront(nil)
         
-        // Start generating ripples with organic timing
-        startRippleGeneration()
-    }
-    
-    /// Stop generating new ripples (existing ones will complete naturally)
-    func stopRipple() {
-        animationTimer?.invalidate()
-        animationTimer = nil
-        isAnimating = false
+        // 1. Create Persistent Layers (Base Glow + Core)
+        createBaseGlow()
+        createCore()
         
-        // Let existing ripples fade out naturally, then close window
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
-            if self?.isAnimating == false && self?.rippleLayers.isEmpty == true {
-                self?.orderOut(nil)
+        // 2. Start Expanding Ring Cycle
+        performWaveCycle()
+        cycleTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            guard self?.isAnimating == true else { return }
+            self?.performWaveCycle()
+        }
+        
+        // 3. Start Comet Tail Rings
+        ringTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in
+            guard self?.isAnimating == true else { return }
+            if Double.random(in: 0...1) > 0.3 {
+                self?.generateBrightRing(speedMultiplier: 1.0)
+                if Double.random(in: 0...1) > 0.5 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        self?.generateBrightRing(speedMultiplier: 1.4)
+                    }
+                }
             }
         }
     }
     
-    // MARK: - Animation
-    
-    private func startRippleGeneration() {
-        // Generate ripples at variable intervals (0.8-1.5s) for organic feel
-        scheduleNextRipple()
+    func stopRipple() {
+        isAnimating = false
+        cycleTimer?.invalidate()
+        cycleTimer = nil
+        ringTimer?.invalidate()
+        ringTimer = nil
+        
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.5
+            self.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            self?.contentView?.layer?.sublayers?.forEach { $0.removeFromSuperlayer() }
+            self?.baseGlowLayer = nil
+            self?.coreLayer = nil
+            self?.orderOut(nil)
+            self?.alphaValue = 1.0
+        })
     }
     
-    private func scheduleNextRipple() {
-        guard isAnimating else { return }
+    // MARK: - Persistent Base Glow (More Transparent Deep Blue)
+    
+    private func createBaseGlow() {
+        guard let contentView = self.contentView, let parentLayer = contentView.layer else { return }
         
-        // Random interval between 0.6 and 1.2 seconds
-        let interval = Double.random(in: 0.6...1.2)
+        let layerSize = baseGlowRadius * 2
         
-        animationTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
-            self?.generateSingleRipple()
-            self?.scheduleNextRipple()
+        let glow = CAGradientLayer()
+        glow.type = .radial
+        // Deep Klein Blue backing - REDUCED ALPHA
+        glow.colors = [
+            NSColor(red: 0.1, green: 0.2, blue: 0.9, alpha: 0.25).cgColor, // drastically reduced from 0.6
+            NSColor(red: 0.05, green: 0.1, blue: 0.7, alpha: 0.15).cgColor, // drastically reduced from 0.4
+            NSColor(red: 0.0, green: 0.05, blue: 0.6, alpha: 0.0).cgColor
+        ]
+        glow.locations = [0, 0.5, 1]
+        
+        let originX: CGFloat = currentEdge == .right ? screenWidth - baseGlowRadius : -baseGlowRadius
+        glow.frame = CGRect(x: originX, y: centerY - baseGlowRadius, width: layerSize, height: layerSize)
+        glow.startPoint = CGPoint(x: 0.5, y: 0.5)
+        glow.endPoint = CGPoint(x: 1.0, y: 1.0)
+        glow.cornerRadius = baseGlowRadius
+        glow.opacity = 0
+        
+        let maskLayer = CAShapeLayer()
+        let maskRect: CGRect = currentEdge == .right
+            ? CGRect(x: 0, y: 0, width: baseGlowRadius, height: layerSize)
+            : CGRect(x: baseGlowRadius, y: 0, width: baseGlowRadius, height: layerSize)
+        maskLayer.path = CGPath(rect: maskRect, transform: nil)
+        glow.mask = maskLayer
+        
+        // Insert very back
+        parentLayer.insertSublayer(glow, at: 0)
+        self.baseGlowLayer = glow
+        
+        // Appear and stay
+        let fadeIn = CABasicAnimation(keyPath: "opacity")
+        fadeIn.fromValue = 0
+        fadeIn.toValue = 1.0
+        fadeIn.duration = 1.0
+        fadeIn.fillMode = .forwards
+        fadeIn.isRemovedOnCompletion = false
+        glow.add(fadeIn, forKey: "baseIn")
+        
+        // Gentle pulse for base
+        let pulse = CABasicAnimation(keyPath: "opacity")
+        pulse.fromValue = 1.0
+        pulse.toValue = 0.7
+        pulse.duration = 3.0
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        glow.add(pulse, forKey: "basePulse")
+    }
+    
+    // MARK: - Persistent Core (Softer Blue Tint)
+    
+    private func createCore() {
+        guard let contentView = self.contentView, let parentLayer = contentView.layer else { return }
+        
+        let layerSize = coreRadius * 2
+        
+        let core = CAGradientLayer()
+        core.type = .radial
+        core.colors = [
+            NSColor.white.cgColor,
+            NSColor(red: 0.6, green: 0.7, blue: 1.0, alpha: 0.6).cgColor, // Reduced from 0.9
+            NSColor(red: 0.2, green: 0.3, blue: 0.95, alpha: 0.3).cgColor, // Reduced from 0.6
+            NSColor(red: 0.1, green: 0.2, blue: 0.9, alpha: 0.0).cgColor
+        ]
+        core.locations = [0, 0.2, 0.5, 1]
+        
+        let originX: CGFloat = currentEdge == .right ? screenWidth - coreRadius : -coreRadius
+        core.frame = CGRect(x: originX, y: centerY - coreRadius, width: layerSize, height: layerSize)
+        core.startPoint = CGPoint(x: 0.5, y: 0.5)
+        core.endPoint = CGPoint(x: 1.0, y: 1.0)
+        core.cornerRadius = coreRadius
+        core.opacity = 0
+        
+        let maskLayer = CAShapeLayer()
+        let maskRect: CGRect = currentEdge == .right
+            ? CGRect(x: 0, y: 0, width: coreRadius * 0.9, height: layerSize)
+            : CGRect(x: coreRadius * 1.1, y: 0, width: coreRadius * 0.9, height: layerSize)
+        maskLayer.path = CGPath(rect: maskRect, transform: nil)
+        core.mask = maskLayer
+        
+        parentLayer.addSublayer(core)
+        self.coreLayer = core
+        
+        // Fade In
+        let fadeIn = CABasicAnimation(keyPath: "opacity")
+        fadeIn.fromValue = 0
+        fadeIn.toValue = 1.0
+        fadeIn.duration = 1.0
+        fadeIn.fillMode = .forwards
+        fadeIn.isRemovedOnCompletion = false
+        core.add(fadeIn, forKey: "coreIn")
+        
+        // Continuous Breathing
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self = self, let c = self.coreLayer else { return }
+            
+            let opAnim = CABasicAnimation(keyPath: "opacity")
+            opAnim.fromValue = 1.0
+            opAnim.toValue = 0.5
+            opAnim.duration = 1.5
+            opAnim.autoreverses = true
+            opAnim.repeatCount = .infinity
+            opAnim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            c.add(opAnim, forKey: "breatheOp")
+            
+            let scAnim = CABasicAnimation(keyPath: "transform.scale")
+            scAnim.fromValue = 1.0
+            scAnim.toValue = 1.2
+            scAnim.duration = 1.5
+            scAnim.autoreverses = true
+            scAnim.repeatCount = .infinity
+            scAnim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            c.add(scAnim, forKey: "breatheSc")
         }
     }
     
-    private func generateSingleRipple() {
-        guard let contentView = self.contentView, let layer = contentView.layer else { return }
+    // MARK: - Thick Hollow Ring Wave (More Transparent)
+    
+    private func performWaveCycle() {
+        guard let contentView = self.contentView, let parentLayer = contentView.layer else { return }
         
-        let rippleLayer = CAShapeLayer()
+        let startRadius: CGFloat = 80
+        let layerSize = startRadius * 2
         
-        // Calculate ripple origin based on edge
-        let originX: CGFloat
-        let originY = indicatorFrame.midY
+        let wave = CAGradientLayer()
+        wave.type = .radial
         
-        switch edgePosition {
-        case .left:
-            originX = indicatorFrame.maxX
-        case .right:
-            originX = indicatorFrame.minX
-        default:
-            return
-        }
+        // Deep Klein Blue Hollow Ring - REDUCED ALPHA
+        wave.colors = [
+            NSColor(red: 0.0, green: 0.1, blue: 0.6, alpha: 0.0).cgColor,
+            NSColor(red: 0.0, green: 0.2, blue: 0.8, alpha: 0.05).cgColor, // Very faint inner
+            NSColor(red: 0.05, green: 0.3, blue: 1.0, alpha: 0.4).cgColor, // Peak reduced from 0.9 to 0.4
+            NSColor(red: 0.1, green: 0.4, blue: 1.0, alpha: 0.0).cgColor
+        ]
+        wave.locations = [0.0, 0.4, 0.9, 1.0]
         
-        // Create arc path (semi-circle expanding from edge)
-        let startRadius: CGFloat = 5
-        let startAngle: CGFloat
-        let endAngle: CGFloat
+        let originX: CGFloat = currentEdge == .right ? screenWidth - startRadius : -startRadius
+        wave.frame = CGRect(x: originX, y: centerY - startRadius, width: layerSize, height: layerSize)
+        wave.cornerRadius = startRadius
+        wave.startPoint = CGPoint(x: 0.5, y: 0.5)
+        wave.endPoint = CGPoint(x: 1.0, y: 1.0)
+        wave.opacity = 0
         
-        if edgePosition == .left {
-            // Expand to the right
-            startAngle = -.pi / 2
-            endAngle = .pi / 2
+        let maskLayer = CAShapeLayer()
+        let maskRect: CGRect = currentEdge == .right
+            ? CGRect(x: 0, y: 0, width: startRadius, height: layerSize)
+            : CGRect(x: startRadius, y: 0, width: startRadius, height: layerSize)
+        maskLayer.path = CGPath(rect: maskRect, transform: nil)
+        wave.mask = maskLayer
+        
+        // Insert behind core
+        if let base = baseGlowLayer {
+            parentLayer.insertSublayer(wave, above: base)
         } else {
-            // Expand to the left
-            startAngle = .pi / 2
-            endAngle = 3 * .pi / 2
+            parentLayer.insertSublayer(wave, at: 0)
         }
         
-        let startPath = NSBezierPath()
-        startPath.appendArc(
-            withCenter: NSPoint(x: originX, y: originY),
-            radius: startRadius,
-            startAngle: startAngle * 180 / .pi,
-            endAngle: endAngle * 180 / .pi
-        )
+        let duration: CFTimeInterval = 4.0
+        let endRadius: CGFloat = 550
+        let endSize = endRadius * 2
+        let endOriginX: CGFloat = currentEdge == .right ? screenWidth - endRadius : -endRadius
         
-        rippleLayer.path = startPath.cgPath
-        rippleLayer.strokeColor = rippleColor.withAlphaComponent(0.6).cgColor
-        rippleLayer.fillColor = nil
-        rippleLayer.lineWidth = 3
-        rippleLayer.lineCap = .round
+        let endMaskRect: CGRect = currentEdge == .right
+            ? CGRect(x: 0, y: 0, width: endRadius, height: endSize)
+            : CGRect(x: endRadius, y: 0, width: endRadius, height: endSize)
         
-        layer.addSublayer(rippleLayer)
-        rippleLayers.append(rippleLayer)
+        // Animation
+        let boundsAnim = CABasicAnimation(keyPath: "bounds")
+        boundsAnim.toValue = CGRect(x: 0, y: 0, width: endSize, height: endSize)
         
-        // Animate expansion with slight randomness
-        let maxRadius: CGFloat = CGFloat.random(in: 1500...2500)
-        let duration: CFTimeInterval = Double.random(in: 4.0...6.0)
+        let posAnim = CABasicAnimation(keyPath: "position")
+        posAnim.toValue = CGPoint(x: endOriginX + endRadius, y: centerY)
         
-        // Create end path
-        let endPath = NSBezierPath()
-        endPath.appendArc(
-            withCenter: NSPoint(x: originX, y: originY),
-            radius: maxRadius,
-            startAngle: startAngle * 180 / .pi,
-            endAngle: endAngle * 180 / .pi
-        )
+        let cornerAnim = CABasicAnimation(keyPath: "cornerRadius")
+        cornerAnim.toValue = endRadius
         
-        // Path animation
-        let pathAnimation = CABasicAnimation(keyPath: "path")
-        pathAnimation.fromValue = startPath.cgPath
-        pathAnimation.toValue = endPath.cgPath
-        pathAnimation.duration = duration
-        pathAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        // Opacity
+        let fadeAnim = CAKeyframeAnimation(keyPath: "opacity")
+        fadeAnim.values = [0.0, 1.0, 0.7, 0.0]
+        fadeAnim.keyTimes = [0, 0.1, 0.6, 1.0]
         
-        // Opacity animation (fade as it expands)
-        let opacityAnimation = CABasicAnimation(keyPath: "opacity")
-        opacityAnimation.fromValue = 0.8
-        opacityAnimation.toValue = 0.0
-        opacityAnimation.duration = duration
-        opacityAnimation.timingFunction = CAMediaTimingFunction(name: .easeIn)
-        
-        // Line width animation (thinner as it expands)
-        let lineWidthAnimation = CABasicAnimation(keyPath: "lineWidth")
-        lineWidthAnimation.fromValue = 4
-        lineWidthAnimation.toValue = 1
-        lineWidthAnimation.duration = duration
-        
-        // Group animations
         let group = CAAnimationGroup()
-        group.animations = [pathAnimation, opacityAnimation, lineWidthAnimation]
+        group.animations = [boundsAnim, posAnim, cornerAnim, fadeAnim]
         group.duration = duration
         group.fillMode = .forwards
         group.isRemovedOnCompletion = false
         
-        CATransaction.begin()
-        CATransaction.setCompletionBlock { [weak self, weak rippleLayer] in
-            rippleLayer?.removeFromSuperlayer()
-            if let layer = rippleLayer {
-                self?.rippleLayers.removeAll { $0 === layer }
-            }
-            // Check if we should close the window
-            if self?.isAnimating == false && self?.rippleLayers.isEmpty == true {
-                self?.orderOut(nil)
-            }
+        if let mask = wave.mask as? CAShapeLayer {
+            let maskAnim = CABasicAnimation(keyPath: "path")
+            maskAnim.toValue = CGPath(rect: endMaskRect, transform: nil)
+            maskAnim.duration = duration
+            maskAnim.fillMode = .forwards
+            maskAnim.isRemovedOnCompletion = false
+            mask.add(maskAnim, forKey: "mexpand")
         }
         
-        rippleLayer.add(group, forKey: "rippleExpand")
-        
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak wave] in
+            wave?.removeFromSuperlayer()
+        }
+        wave.add(group, forKey: "wexpand")
         CATransaction.commit()
     }
-}
-
-// MARK: - NSBezierPath Extension
-
-extension NSBezierPath {
-    var cgPath: CGPath {
-        let path = CGMutablePath()
-        var points = [CGPoint](repeating: .zero, count: 3)
+    
+    // MARK: - Comet Tail Ring (Bright but clean)
+    
+    private func generateBrightRing(speedMultiplier: Double) {
+        guard let contentView = self.contentView, let parentLayer = contentView.layer else { return }
         
-        for i in 0..<self.elementCount {
-            let type = self.element(at: i, associatedPoints: &points)
-            switch type {
-            case .moveTo:
-                path.move(to: points[0])
-            case .lineTo:
-                path.addLine(to: points[0])
-            case .curveTo:
-                path.addCurve(to: points[2], control1: points[0], control2: points[1])
-            case .closePath:
-                path.closeSubpath()
-            case .cubicCurveTo:
-                path.addCurve(to: points[2], control1: points[0], control2: points[1])
-            case .quadraticCurveTo:
-                path.addQuadCurve(to: points[1], control: points[0])
-            @unknown default:
-                break
-            }
+        let initialRadius: CGFloat = 50
+        let layerSize = initialRadius * 2
+        
+        let ring = CALayer()
+        let originX: CGFloat = currentEdge == .right ? screenWidth - initialRadius : -initialRadius
+        ring.frame = CGRect(x: originX, y: centerY - initialRadius, width: layerSize, height: layerSize)
+        ring.cornerRadius = initialRadius
+        
+        ring.borderWidth = 1.8
+        // Deep blue but slightly softer alpha
+        ring.borderColor = NSColor(red: 0.6, green: 0.7, blue: 1.0, alpha: 0.9).cgColor
+        ring.backgroundColor = NSColor.clear.cgColor
+        ring.shadowColor = NSColor(red: 0.2, green: 0.4, blue: 1.0, alpha: 0.9).cgColor
+        ring.shadowRadius = 8
+        ring.shadowOpacity = 1.0
+        ring.opacity = 0
+        
+        let maskLayer = CAShapeLayer()
+        let maskRect: CGRect = currentEdge == .right
+            ? CGRect(x: 0, y: 0, width: initialRadius, height: layerSize)
+            : CGRect(x: initialRadius, y: 0, width: initialRadius, height: layerSize)
+        maskLayer.path = CGPath(rect: maskRect, transform: nil)
+        ring.mask = maskLayer
+        
+        if let core = coreLayer {
+            parentLayer.insertSublayer(ring, below: core)
+        } else {
+            parentLayer.addSublayer(ring)
         }
         
-        return path
+        let duration: CFTimeInterval = 2.4 / speedMultiplier
+        let endRadius: CGFloat = 380
+        let endSize = endRadius * 2
+        let endOriginX: CGFloat = currentEdge == .right ? screenWidth - endRadius : -endRadius
+        let endMaskRect: CGRect = currentEdge == .right
+            ? CGRect(x: 0, y: 0, width: endRadius, height: endSize)
+            : CGRect(x: endRadius, y: 0, width: endRadius, height: endSize)
+        
+        let boundsAnim = CABasicAnimation(keyPath: "bounds")
+        boundsAnim.toValue = CGRect(x: 0, y: 0, width: endSize, height: endSize)
+        
+        let posAnim = CABasicAnimation(keyPath: "position")
+        posAnim.toValue = CGPoint(x: endOriginX + endRadius, y: centerY)
+        
+        let cornerAnim = CABasicAnimation(keyPath: "cornerRadius")
+        cornerAnim.toValue = endRadius
+        
+        let borderAnim = CABasicAnimation(keyPath: "borderWidth")
+        borderAnim.toValue = 0.5
+        
+        let fadeAnim = CAKeyframeAnimation(keyPath: "opacity")
+        fadeAnim.values = [0.0, 1.0, 1.0, 0.0]
+        fadeAnim.keyTimes = [0, 0.1, 0.6, 1.0]
+        
+        let group = CAAnimationGroup()
+        group.animations = [boundsAnim, posAnim, cornerAnim, borderAnim, fadeAnim]
+        group.duration = duration
+        group.fillMode = .forwards
+        group.isRemovedOnCompletion = false
+        
+        if let mask = ring.mask as? CAShapeLayer {
+            let maskAnim = CABasicAnimation(keyPath: "path")
+            maskAnim.toValue = CGPath(rect: endMaskRect, transform: nil)
+            maskAnim.duration = duration
+            maskAnim.fillMode = .forwards
+            maskAnim.isRemovedOnCompletion = false
+            mask.add(maskAnim, forKey: "rmexpand")
+        }
+        
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak ring] in
+            ring?.removeFromSuperlayer()
+        }
+        ring.add(group, forKey: "rexpand")
+        CATransaction.commit()
     }
 }

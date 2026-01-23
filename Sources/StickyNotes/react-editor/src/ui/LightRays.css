@@ -1,0 +1,20 @@
+.light-rays-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+    visibility: hidden;
+}
+
+body.rays-active .editor-shell>*:not(.light-rays-container) {
+    opacity: 0;
+    pointer-events: none;
+}
+
+body.rays-active .light-rays-container {
+    visibility: visible;
+}

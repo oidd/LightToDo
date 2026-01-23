@@ -540,11 +540,10 @@ class EdgeSnapWindowController: NSObject {
         
         guard state == .collapsed, let indicator = indicatorWindow else { return }
         
-        // Start shake animation on indicator
-        indicator.startShake()
-        indicator.updateColor(color)
+        // Start breathing animation (Deep Blue Stretch)
+        indicator.startBreathing()
         
-        // Start ripple overlay
+        // Start ripple overlay (now handles light rays WebGL)
         rippleOverlay?.startRipple(edge: snapEdge, indicatorFrame: indicator.frame, color: color)
     }
     
@@ -569,16 +568,16 @@ class EdgeSnapWindowController: NSObject {
         // Create a temporary indicator for preview
         let tempIndicator = EdgeIndicatorWindow()
         tempIndicator.setFrame(indicatorFrame, display: true)
-        tempIndicator.updateColor(color)
+        // tempIndicator.updateColor(color) // Don't use passed color, force Deep Blue
         tempIndicator.orderFront(nil)
-        tempIndicator.startShake()
+        tempIndicator.startBreathing()
         
         // Start ripple
         rippleOverlay?.startRipple(edge: edge, indicatorFrame: indicatorFrame, color: color)
         
-        // Clean up after 3 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            tempIndicator.stopShake()
+        // Clean up after 8 seconds (extended for better preview)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) {
+            tempIndicator.stopBreathing()
             tempIndicator.orderOut(nil)
             self.rippleOverlay?.stopRipple()
         }
@@ -586,7 +585,7 @@ class EdgeSnapWindowController: NSObject {
     
     /// Stop ripple animation (called when user hovers or expands)
     func stopRippleAnimation() {
-        indicatorWindow?.stopShake()
+        indicatorWindow?.stopBreathing()
         rippleOverlay?.stopRipple()
         
         // Reset indicator color to default orange
@@ -605,6 +604,8 @@ class EdgeIndicatorWindow: NSPanel {
     var onMouseEntered: (() -> Void)?
     private var isShaking = false
     private var shakeAnimation: CAKeyframeAnimation?
+    private var beamLayer: CAGradientLayer?
+    private var backgroundLayer: CALayer?
     
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -636,28 +637,120 @@ class EdgeIndicatorWindow: NSPanel {
         onMouseEntered?()
     }
     
-    // MARK: - Shake Animation
+    // MARK: - Breathing Animation (Deep Blue Stretch Pulse)
     
-    func startShake() {
+    // MARK: - Breathing Animation (Deep Blue Stretch Pulse)
+    
+    func startBreathing() {
         guard !isShaking, let contentView = self.contentView, let layer = contentView.layer else { return }
         isShaking = true
         
-        let animation = CAKeyframeAnimation(keyPath: "position.y")
-        animation.values = [0, -2, 2, -1.5, 1.5, -1, 1, 0]
-        animation.keyTimes = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 1]
-        animation.duration = 0.4
-        animation.repeatCount = .infinity
-        animation.isAdditive = true
+        // 0. Prepare Root Layer
+        // We stop using the view's main background color because we need independent layer control.
+        if let lineView = contentView as? SimpleColorView {
+            // Store original if needed? Actually we just reset to transparent here.
+            lineView.backgroundColor = .clear 
+        }
         
-        layer.add(animation, forKey: "shake")
-        shakeAnimation = animation
+        let bounds = layer.bounds
+        
+        // 1. Create Background Layer (The Blue Bar)
+        // This layer will handle the Stretch Animation independently.
+        let bg = CALayer()
+        bg.frame = bounds
+        bg.backgroundColor = NSColor(red: 0.0, green: 0.3, blue: 1.0, alpha: 0.9).cgColor // Deep Klein Blue
+        bg.cornerRadius = 3
+        
+        layer.addSublayer(bg)
+        self.backgroundLayer = bg
+        
+        // 2. Animate Background: Vertical Stretch (Scale Y)
+        let stretch = CABasicAnimation(keyPath: "transform.scale.y")
+        stretch.fromValue = 1.0
+        stretch.toValue = 1.4 // Stretch 40%
+        stretch.duration = 0.8
+        stretch.autoreverses = true
+        stretch.repeatCount = .infinity
+        stretch.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        
+        bg.add(stretch, forKey: "breathingStretch")
+        
+        // 3. Animate Background: Opacity Pulse
+        let pulse = CABasicAnimation(keyPath: "opacity")
+        pulse.fromValue = 1.0
+        pulse.toValue = 0.6
+        pulse.duration = 0.8
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        
+        bg.add(pulse, forKey: "breathingPulse")
+        
+        // 4. Add Vertical Beam (White Light Streak)
+        // This layer is added to ROOT 'layer', NOT 'bg'. 
+        // So it stays static (no stretch) and perfectly centered.
+        let beam = CAGradientLayer()
+        // Strict Gradient: Only center 30% has visible white.
+        beam.colors = [
+            NSColor(white: 1, alpha: 0).cgColor,    // 0.0
+            NSColor(white: 1, alpha: 0).cgColor,    // 0.35
+            NSColor(white: 1, alpha: 1).cgColor,    // 0.50
+            NSColor(white: 1, alpha: 0).cgColor,    // 0.65
+            NSColor(white: 1, alpha: 0).cgColor     // 1.0
+        ]
+        beam.locations = [0, 0.35, 0.5, 0.65, 1]
+        beam.startPoint = CGPoint(x: 0.5, y: 0)
+        beam.endPoint = CGPoint(x: 0.5, y: 1)
+        
+        let beamWidth: CGFloat = 3.0
+        beam.frame = CGRect(x: (bounds.width - beamWidth) / 2, y: 0, width: beamWidth, height: bounds.height)
+        beam.compositingFilter = "screenBlendMode"
+        
+        // Diamond Mask
+        let maskShape = CAShapeLayer()
+        let path = CGMutablePath()
+        let w = beamWidth
+        let h = bounds.height
+        
+        path.move(to: CGPoint(x: w/2, y: 0))
+        path.addLine(to: CGPoint(x: w, y: h/2))
+        path.addLine(to: CGPoint(x: w/2, y: h))
+        path.addLine(to: CGPoint(x: 0, y: h/2))
+        path.closeSubpath()
+        
+        maskShape.path = path
+        beam.mask = maskShape
+        
+        layer.addSublayer(beam)
+        self.beamLayer = beam
+        
+        // Animate Beam Opacity Only (No Jump/Stretch)
+        let beamPulse = CABasicAnimation(keyPath: "opacity")
+        beamPulse.fromValue = 0.5
+        beamPulse.toValue = 1.0
+        beamPulse.duration = 0.8
+        beamPulse.autoreverses = true
+        beamPulse.repeatCount = .infinity
+        beamPulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        
+        beam.add(beamPulse, forKey: "beamPulse")
     }
     
-    func stopShake() {
+    func stopBreathing() {
         guard isShaking, let contentView = self.contentView else { return }
         isShaking = false
-        contentView.layer?.removeAnimation(forKey: "shake")
-        shakeAnimation = nil
+        
+        // Remove manual layers
+        backgroundLayer?.removeFromSuperlayer()
+        backgroundLayer = nil
+        
+        beamLayer?.removeFromSuperlayer()
+        beamLayer = nil
+        
+        // Restore default view state (Orange)
+        if let lineView = contentView as? SimpleColorView {
+            lineView.backgroundColor = NSColor.orange.withAlphaComponent(0.4)
+        }
     }
     
     func updateColor(_ color: NSColor) {
