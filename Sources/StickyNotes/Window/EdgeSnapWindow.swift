@@ -17,6 +17,7 @@ class EdgeSnapWindowController: NSObject {
     private var originalFrame: NSRect = .zero
     private var isDragging = false
     private var isProgrammaticMove = false // 新增：防止代码移动窗口时触发拖拽逻辑
+    private var lastUserSize: CGSize? // 记录用户手动调整的最后大小
     
     // 鼠标监听器
     private var globalMouseMonitor: Any?
@@ -50,6 +51,9 @@ class EdgeSnapWindowController: NSObject {
     private func setupWindow() {
         guard let window = window else { return }
         
+        // 记录初始大小
+        self.lastUserSize = window.frame.size
+        
         // 配置窗口样式
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -69,6 +73,14 @@ class EdgeSnapWindowController: NSObject {
             self,
             selector: #selector(windowWillMove),
             name: NSWindow.willMoveNotification,
+            object: window
+        )
+        
+        // 监听用户手动调整大小结束 (更新 lastUserSize)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidEndLiveResize),
+            name: NSWindow.didEndLiveResizeNotification,
             object: window
         )
         
@@ -93,6 +105,12 @@ class EdgeSnapWindowController: NSObject {
             name: Notification.Name("EdgeBarColorChanged"),
             object: nil
         )
+    }
+    
+    @objc private func windowDidEndLiveResize(_ notification: Notification) {
+        if let window = window {
+            self.lastUserSize = window.frame.size
+        }
     }
     
     private func createIndicatorWindow() {
@@ -187,6 +205,30 @@ class EdgeSnapWindowController: NSObject {
         // 如果是代码控制的移动，或者是我们在吸附/隐藏动画中，不要重置状态
         if isProgrammaticMove { return }
         
+        guard let window = window else { return }
+        
+        // 1. 检查是否需要恢复原始大小 (针对 macOS 系统级吸附/缩放后的恢复)
+        // 只有当窗口明显被改变大小时才尝试恢复 (避免微小抖动触发)
+        if let savedSize = lastUserSize {
+            let currentArea = window.frame.width * window.frame.height
+            let savedArea = savedSize.width * savedSize.height
+            
+            // 如果当前面积明显大于用户保存的面积 (说明被系统放大了)，则恢复
+            // 使用 > 1.1 作为容差
+            if currentArea > savedArea * 1.05 || currentArea < savedArea * 0.95 {
+                 // 保持窗口顶部和中心相对位置，防止跳变
+                 let oldMaxY = window.frame.maxY
+                 let oldMidX = window.frame.midX
+                 
+                 var newFrame = window.frame
+                 newFrame.size = savedSize
+                 newFrame.origin.y = oldMaxY - savedSize.height
+                 newFrame.origin.x = oldMidX - savedSize.width / 2
+                 
+                 window.setFrame(newFrame, display: true)
+            }
+        }
+        
          // 开始拖动
          if !isDragging {
              isDragging = true
@@ -203,8 +245,8 @@ class EdgeSnapWindowController: NSObject {
              stopMouseTrackingTimer()
              
              // Restore interaction
-             window?.alphaValue = 1
-             window?.ignoresMouseEvents = false
+             window.alphaValue = 1
+             window.ignoresMouseEvents = false
          }
     }
     
