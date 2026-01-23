@@ -5,6 +5,7 @@ import { $isListItemNode, $isListNode, ListItemNode, $createListItemNode, $creat
 import { $createReminderNode, $isReminderNode, ReminderNode, ReminderData } from '../nodes/ReminderNode';
 import TodoDetailsPanel from './TodoDetailsPanel';
 import DropDown, { DropDownItem } from './DropDown';
+import { useDateDetection, DateSuggestionPopup, DateDetectionResult } from './DateDetector';
 
 interface TodoItem {
     key: string;
@@ -40,6 +41,10 @@ export default function TodoView() {
     const [ringingBells, setRingingBells] = useState<Set<string>>(new Set());
     const bellTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
+    // Date Detection
+    const { detectionResult, detectDate, clearDetection, invalidateRequests } = useDateDetection();
+    const detectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     // Focus inputs on right-click (context menu) to ensure native menu works (Cut/Copy/Paste/Services)
     // and that deleteFocusedTodo knows which item to delete.
     useEffect(() => {
@@ -53,9 +58,6 @@ export default function TodoView() {
                     // Force focus on the textarea so native menu operations work
                     if (document.activeElement !== textarea) {
                         textarea.focus();
-
-                        // Optional: Reset selection to end if clicking outside text?
-                        // For now just focus is enough to enable the menu.
                     }
                 }
             }
@@ -71,7 +73,6 @@ export default function TodoView() {
             const root = $getRoot();
 
             function walkTree(node: LexicalNode) {
-                // Check if it's a list item in a checklist
                 if ($isListItemNode(node)) {
                     const parent = node.getParent();
                     if ($isListNode(parent) && parent.getListType() === 'check') {
@@ -95,7 +96,6 @@ export default function TodoView() {
                     }
                 }
 
-                // Recursively walk through all children of any type
                 if ('getChildren' in node && typeof (node as any).getChildren === 'function') {
                     (node as any).getChildren().forEach(walkTree);
                 }
@@ -103,7 +103,6 @@ export default function TodoView() {
 
             walkTree(root);
 
-            // Calculate counts for all modes
             const now = new Date();
             const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
             const endOfToday = startOfToday + 24 * 60 * 60 * 1000;
@@ -116,38 +115,20 @@ export default function TodoView() {
                 completed: allItems.filter(t => t.checked).length
             };
 
-            console.log('📊 Total Items Found:', allItems.length);
-            console.log('📊 Generated Counts:', counts);
-
-            // Send counts back to Swift
             if (window.webkit?.messageHandlers?.editor) {
                 window.webkit.messageHandlers.editor.postMessage({ type: 'counts', data: counts });
-
-                // Also send reminders data
                 const reminders = allItems.filter(t => !t.checked && t.reminder?.hasReminder).map(t => ({
                     key: t.key,
                     time: t.reminder?.time || 0,
                     hasReminder: t.reminder?.hasReminder || false
                 }));
                 window.webkit.messageHandlers.editor.postMessage({ type: 'reminders', data: reminders });
-            } else {
-                console.warn('⚠️ window.webkit.messageHandlers.editor NOT FOUND');
             }
-
-            // Filter todos based on current mode
-            // We implement "sticky" logic: if an item is currently displayed, keep it displayed 
-            // even if it no longer strictly matches the filter (e.g. user changed date), 
-            // until the user switches views.
 
             const strictMatches = allItems.filter(t => {
                 if (t.checked) {
-                    // Check if it's optimistically kept
                     return filterMode === 'completed';
-                    // Note: Optimistic checked items are handled by optimisticIds overlay in render, 
-                    // but here we filter raw data. Raw data 'checked' is false for optimistic items usually.
-                    // If raw data is checked, it belongs in completed.
                 }
-
                 switch (filterMode) {
                     case 'today':
                         return t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday;
@@ -156,56 +137,37 @@ export default function TodoView() {
                     case 'important':
                         return t.reminder && t.reminder.priority !== 'none';
                     case 'completed':
-                        return false; // Should satisfy t.checked check above
+                        return false;
                     case 'all':
                     default:
                         return true;
                 }
             });
 
-            // Update displayed keys with current strict matches
             strictMatches.forEach(t => displayedKeys.current.add(t.key));
 
-            // Final filter: strict matches OR (was displayed AND still exists)
-            // But we must exclude checked items if mode is not completed (unless optimistic)
             let finalFiltered = allItems.filter(t => {
                 if (filterMode === 'completed') {
                     return t.checked;
                 }
-
-                // For non-completed modes:
                 if (t.checked) return false;
-
                 const isStrict = strictMatches.some(m => m.key === t.key);
                 const isSticky = displayedKeys.current.has(t.key);
-
                 return isStrict || isSticky;
             });
 
-            // Apply search filter (overrides all logic, searches within the current view content)
             if (searchQuery.trim()) {
                 const lowerQuery = searchQuery.toLowerCase();
                 finalFiltered = finalFiltered.filter(t => t.text.toLowerCase().includes(lowerQuery));
             }
 
-            // --- Stable Position Sorting Logic ---
-            // 1. Items WITH priority: ALWAYS sorted to the very top by priority level
-            // 2. Items WITH date/time but NO priority: sorted by deadline among themselves
-            // 3. Items with NEITHER priority nor date/time: stay pinned in their original position
-
             const priorityMap: Record<string, number> = {
-                'high': 3,
-                'medium': 2,
-                'low': 1,
-                'none': 0
+                'high': 3, 'medium': 2, 'low': 1, 'none': 0
             };
 
-            // Helper functions
             const hasPriority = (t: TodoItem) => t.reminder && t.reminder.priority && t.reminder.priority !== 'none';
             const hasDateTime = (t: TodoItem) => t.reminder && (t.reminder.hasDate || t.reminder.hasTime);
-            const isSortable = (t: TodoItem) => hasPriority(t) || hasDateTime(t);
 
-            // Step 1: Separate items into three categories
             const priorityItems: TodoItem[] = [];
             const dateTimeItems: TodoItem[] = [];
             const pinnedPositions: number[] = [];
@@ -220,13 +182,10 @@ export default function TodoView() {
                 }
             });
 
-            // Step 2: Sort priority items by priority level (high > medium > low)
             priorityItems.sort((a, b) => {
                 const pA = priorityMap[a.reminder!.priority];
                 const pB = priorityMap[b.reminder!.priority];
                 if (pA !== pB) return pB - pA;
-
-                // Same priority, sort by deadline if available
                 if (sortMode === 'byDeadline') {
                     const hasDeadlineA = a.reminder && a.reminder.time > 0;
                     const hasDeadlineB = b.reminder && b.reminder.time > 0;
@@ -237,15 +196,12 @@ export default function TodoView() {
                 return 0;
             });
 
-            // Step 3: Sort date/time items by deadline
             dateTimeItems.sort((a, b) => {
                 if (sortMode === 'byDeadline') {
                     const hasDeadlineA = a.reminder && a.reminder.time > 0;
                     const hasDeadlineB = b.reminder && b.reminder.time > 0;
-
                     if (hasDeadlineA && !hasDeadlineB) return -1;
                     if (!hasDeadlineA && hasDeadlineB) return 1;
-
                     if (hasDeadlineA && hasDeadlineB) {
                         return a.reminder!.time - b.reminder!.time;
                     }
@@ -253,29 +209,20 @@ export default function TodoView() {
                 return 0;
             });
 
-            // Step 4: Combine sorted items: priority first, then dateTime
             const sortedItems = [...priorityItems, ...dateTimeItems];
-
-            // Step 5: Rebuild the final array
-            // - Pinned items stay at their original positions
-            // - Sorted items fill the remaining positions
             const result: TodoItem[] = new Array(finalFiltered.length);
             const pinnedSet = new Set(pinnedPositions);
             let sortedIndex = 0;
 
             for (let i = 0; i < finalFiltered.length; i++) {
                 if (pinnedSet.has(i)) {
-                    // This position is pinned, use the original item
                     result[i] = finalFiltered[i];
                 } else {
-                    // This position is for a sorted item
                     result[i] = sortedItems[sortedIndex++];
                 }
             }
 
-            finalFiltered = result;
-
-            setTodos(finalFiltered);
+            setTodos(result);
         });
     }, [editor, filterMode, searchQuery, sortMode]);
 
@@ -289,7 +236,6 @@ export default function TodoView() {
     useEffect(() => {
         (window as any).setFilterMode = (mode: string) => {
             setFilterMode(mode);
-            // Clear sticky keys on mode switch
             displayedKeys.current.clear();
         };
 
@@ -301,15 +247,12 @@ export default function TodoView() {
             setSortMode(mode);
         };
 
-        // Bell animation trigger from Swift
         (window as any).triggerBellAnimation = (todoKey: string) => {
             setRingingBells(prev => {
                 const next = new Set(prev);
                 next.add(todoKey);
                 return next;
             });
-
-            // Auto-stop after 1 minute
             const timeout = setTimeout(() => {
                 setRingingBells(prev => {
                     const next = new Set(prev);
@@ -318,11 +261,9 @@ export default function TodoView() {
                 });
                 bellTimeouts.current.delete(todoKey);
             }, 60000);
-
             bellTimeouts.current.set(todoKey, timeout);
         };
 
-        // Stop bell animation (when todo is checked)
         (window as any).stopBellAnimation = (todoKey: string) => {
             if (bellTimeouts.current.has(todoKey)) {
                 clearTimeout(bellTimeouts.current.get(todoKey));
@@ -335,19 +276,14 @@ export default function TodoView() {
             });
         };
 
-        // Delete focused todo item (called from Swift native context menu)
         (window as any).deleteFocusedTodo = () => {
-            // Find the currently focused element
             const activeElement = document.activeElement;
             if (activeElement && activeElement.classList.contains('todo-input')) {
-                // Get the todo item row
                 const todoRow = activeElement.closest('.todo-row');
                 if (todoRow) {
-                    // Find the todo key by matching the textarea with itemRefs
                     for (const todo of todos) {
                         const ref = itemRefs.current[todo.key];
                         if (ref && ref === activeElement) {
-                            // Delete this todo
                             editor.update(() => {
                                 const node = $getNodeByKey(todo.key);
                                 if (node) {
@@ -361,7 +297,6 @@ export default function TodoView() {
             }
         };
 
-        // Get reminder data for Swift to check deadlines
         (window as any).getReminderData = () => {
             return JSON.stringify(todos.filter(t => !t.checked && t.reminder?.hasReminder).map(t => ({
                 key: t.key,
@@ -371,18 +306,7 @@ export default function TodoView() {
         };
 
         (window as any).addNewTodo = () => {
-
-            // Logic similar to handleCreateFirst but context aware
             editor.getEditorState().read(() => {
-                const root = $getRoot();
-                // Check if we have any list items to append after, or if we need to create first
-                // We'll simulate a click on the "fill area" if items exist, or create first if empty
-                // But since we are outside the render loop, we need direct node access
-
-                // Simplest: use handleCreateFirst logic if empty, or handleEnter on last item
-                // However, handleEnter needs a key.
-                // Let's use a robust approach: find the last ListItemNode and insert after, or create new list.
-
                 const lastItem = todos.length > 0 ? todos[todos.length - 1] : null;
                 if (lastItem) {
                     handleEnter(lastItem.key);
@@ -391,7 +315,7 @@ export default function TodoView() {
                 }
             });
         };
-    }, [todos, editor]); // Add deps to ensure handleEnter/handleCreateFirst work with current state
+    }, [todos, editor]);
 
     useEffect(() => {
         if (pendingFocusKey.current) {
@@ -399,8 +323,6 @@ export default function TodoView() {
             const el = itemRefs.current[key];
             if (el) {
                 el.focus();
-
-                // If it's a new task with a prefix (like in Important tab), position cursor after the prefix
                 editor.getEditorState().read(() => {
                     const node = $getNodeByKey(key);
                     if ($isListItemNode(node)) {
@@ -418,7 +340,6 @@ export default function TodoView() {
                         }
                     }
                 });
-
                 pendingFocusKey.current = null;
             }
         }
@@ -426,7 +347,6 @@ export default function TodoView() {
 
     const handleToggle = (key: string, checked: boolean, todo: TodoItem) => {
         if (!checked) {
-            // If user unchecked while we were waiting for the recurring task to complete (optimistic state)
             if (pendingTimeouts.current.has(key)) {
                 clearTimeout(pendingTimeouts.current.get(key));
                 pendingTimeouts.current.delete(key);
@@ -435,10 +355,8 @@ export default function TodoView() {
                     next.delete(key);
                     return next;
                 });
-                return; // Do nothing else, Lexical state was never changed
+                return;
             }
-
-            // Normal uncheck
             editor.update(() => {
                 const node = $getNodeByKey(key);
                 if ($isListItemNode(node)) {
@@ -449,17 +367,13 @@ export default function TodoView() {
         }
 
         if (todo.reminder && todo.reminder.repeatType !== 'none') {
-            // For recurring todos, use Optimistic UI to keep it in the list (visually checked)
-            // instead of removing it immediately via filter logic.
             setOptimisticIds(prev => {
                 const next = new Set(prev);
                 next.add(key);
                 return next;
             });
-
             const timeoutId = setTimeout(() => {
                 pendingTimeouts.current.delete(key);
-                // Clear optimistic state exactly when we are about to replace data
                 setOptimisticIds(prev => {
                     const next = new Set(prev);
                     next.delete(key);
@@ -467,16 +381,12 @@ export default function TodoView() {
                 });
                 calculateNextReminderAndReplace(key, todo);
             }, 800);
-
             pendingTimeouts.current.set(key, timeoutId);
         } else {
-            // For normal todos, just mark as checked.
             editor.update(() => {
                 const node = $getNodeByKey(key);
                 if ($isListItemNode(node)) {
                     node.setChecked(true);
-
-                    // Add/Update completion timestamp
                     const children = node.getChildren();
                     const existing = children.find(c => $isReminderNode(c)) as ReminderNode | undefined;
                     if (existing) {
@@ -508,18 +418,10 @@ export default function TodoView() {
             const d = new Date(nextTime);
 
             switch (reminder.repeatType) {
-                case 'daily':
-                    d.setDate(d.getDate() + 1);
-                    break;
-                case 'weekly':
-                    d.setDate(d.getDate() + 7);
-                    break;
-                case 'monthly':
-                    d.setMonth(d.getMonth() + 1);
-                    break;
-                case 'yearly':
-                    d.setFullYear(d.getFullYear() + 1);
-                    break;
+                case 'daily': d.setDate(d.getDate() + 1); break;
+                case 'weekly': d.setDate(d.getDate() + 7); break;
+                case 'monthly': d.setMonth(d.getMonth() + 1); break;
+                case 'yearly': d.setFullYear(d.getFullYear() + 1); break;
                 case 'weekdays':
                     const day = d.getDay();
                     if (day === 5) d.setDate(d.getDate() + 3);
@@ -531,30 +433,21 @@ export default function TodoView() {
             nextTime = d.getTime();
             const newReminder = { ...reminder, time: nextTime, autoRefreshedAt: Date.now() };
 
-            // 1. Archive the old task: remove repeat logic so it stays as a simple completed task
-            // We must explicitly set it to checked now, because handleToggle didn't do it (it was optimistic)
             node.setChecked(true);
-
             const children = node.getChildren();
             const oldReminderNode = children.find(c => $isReminderNode(c));
-            if (oldReminderNode) {
-                oldReminderNode.remove();
-            }
-            // Add back a reminder node but with no repeat, preserving history and adding completion time
+            if (oldReminderNode) oldReminderNode.remove();
+
             node.append($createReminderNode({
                 ...reminder,
                 repeatType: 'none',
                 completedAt: Date.now(),
-                // Keep priority for history
             }));
 
-            // 2. Create new task for next cycle
             const newNode = $createListItemNode();
             newNode.setChecked(false);
             newNode.append(new TextNode(todo.text));
             newNode.append($createReminderNode(newReminder));
-
-            // Insert new task after the old one
             node.insertAfter(newNode);
         });
     };
@@ -572,7 +465,6 @@ export default function TodoView() {
             if ($isListItemNode(node)) {
                 const children = node.getChildren();
                 const reminderNode = children.find(c => $isReminderNode(c));
-
                 node.clear();
                 node.append(new TextNode(text));
                 if (reminderNode) {
@@ -580,6 +472,63 @@ export default function TodoView() {
                 }
             }
         });
+
+        // Trigger Date Detection
+        if (detectTimer.current) clearTimeout(detectTimer.current);
+        detectTimer.current = setTimeout(() => {
+            detectDate(key, text);
+        }, 300);
+    };
+
+    const applyDateSuggestion = () => {
+        if (!detectionResult) return;
+        const { id, result } = detectionResult;
+
+        // Clear any pending debounced detectDate calls to prevent race conditions (e.g. from onBlur)
+        if (detectTimer.current) {
+            clearTimeout(detectTimer.current);
+            detectTimer.current = null;
+        }
+
+        // Invalidate any pending requests from concurrent events (like onBlur)
+        invalidateRequests(id);
+        clearDetection();
+
+        editor.update(() => {
+            const node = $getNodeByKey(id);
+            if ($isListItemNode(node)) {
+                const children = node.getChildren();
+                let reminderNode = children.find(c => $isReminderNode(c)) as ReminderNode | undefined;
+                const existingData = reminderNode ? reminderNode.getData() : getDefaultReminder('all')!;
+                const hasTime = result.suggestedLabel.includes(":");
+
+                const newData: ReminderData = {
+                    ...existingData,
+                    time: result.date,
+                    hasDate: true,
+                    hasTime: hasTime,
+                    repeatType: result.repeatType as any,
+                    hasReminder: true
+                };
+
+                if (reminderNode) {
+                    reminderNode.setData(newData);
+                } else {
+                    node.append($createReminderNode(newData));
+                }
+            }
+        });
+        clearDetection();
+    };
+
+    const shouldShowSuggestion = (todo: TodoItem | undefined, result: DateDetectionResult) => {
+        if (!todo || !todo.reminder) return true;
+
+        // If the reminder already has the same date, time, and repeat type, don't show it again.
+        const isSameTime = Math.abs(todo.reminder.time - result.date) < 1000;
+        const isSameRepeat = todo.reminder.repeatType === result.repeatType;
+
+        return !(isSameTime && isSameRepeat && todo.reminder.hasDate);
     };
 
     const handlePriorityChange = (key: string, priority: 'none' | 'low' | 'medium' | 'high') => {
@@ -591,7 +540,6 @@ export default function TodoView() {
                 if (reminderNode) {
                     reminderNode.setPriority(priority);
                 } else if (priority !== 'none') {
-                    const now = Date.now();
                     node.append($createReminderNode({
                         time: 0,
                         repeatType: 'none',
@@ -609,43 +557,9 @@ export default function TodoView() {
     const getDefaultReminder = (mode: string): ReminderData | undefined => {
         const now = new Date();
         const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0).getTime();
-
-        if (mode === 'today') {
-            return {
-                time: endOfToday,
-                repeatType: 'none',
-                originalTime: endOfToday,
-                priority: 'none',
-                hasReminder: false,
-                hasDate: true,
-                hasTime: true
-            };
-        }
-
-        if (mode === 'important') {
-            return {
-                time: 0,
-                repeatType: 'none',
-                originalTime: 0,
-                priority: 'medium',
-                hasReminder: false,
-                hasDate: false,
-                hasTime: false
-            };
-        }
-
-        if (mode === 'recurring') {
-            return {
-                time: endOfToday,
-                repeatType: 'daily',
-                originalTime: endOfToday,
-                priority: 'none',
-                hasReminder: false,
-                hasDate: true,
-                hasTime: true
-            };
-        }
-
+        if (mode === 'today') return { time: endOfToday, repeatType: 'none', originalTime: endOfToday, priority: 'none', hasReminder: false, hasDate: true, hasTime: true };
+        if (mode === 'important') return { time: 0, repeatType: 'none', originalTime: 0, priority: 'medium', hasReminder: false, hasDate: false, hasTime: false };
+        if (mode === 'recurring') return { time: endOfToday, repeatType: 'daily', originalTime: endOfToday, priority: 'none', hasReminder: false, hasDate: true, hasTime: true };
         return undefined;
     };
 
@@ -655,13 +569,8 @@ export default function TodoView() {
             if ($isListItemNode(node)) {
                 const newNode = $createListItemNode();
                 newNode.setChecked(false);
-
-                // Apply default reminder based on current view
                 const defaultReminder = getDefaultReminder(filterMode);
-                if (defaultReminder) {
-                    newNode.append($createReminderNode(defaultReminder));
-                }
-
+                if (defaultReminder) newNode.append($createReminderNode(defaultReminder));
                 node.insertAfter(newNode);
                 pendingFocusKey.current = newNode.getKey();
             }
@@ -677,13 +586,8 @@ export default function TodoView() {
             const root = $getRoot();
             const listNode = $createListNode('check');
             const listItem = $createListItemNode();
-
-            // Apply default reminder based on current view
             const defaultReminder = getDefaultReminder(filterMode);
-            if (defaultReminder) {
-                listItem.append($createReminderNode(defaultReminder));
-            }
-
+            if (defaultReminder) listItem.append($createReminderNode(defaultReminder));
             listNode.append(listItem);
             root.append(listNode);
             pendingFocusKey.current = listItem.getKey();
@@ -702,9 +606,7 @@ export default function TodoView() {
             const node = $getNodeByKey(dialogTargetKey);
             if ($isListItemNode(node)) {
                 const children = node.getChildren();
-                children.forEach(c => {
-                    if ($isReminderNode(c)) c.remove();
-                });
+                children.forEach(c => { if ($isReminderNode(c)) c.remove(); });
                 node.append($createReminderNode(data));
             }
         });
@@ -716,9 +618,7 @@ export default function TodoView() {
             const node = $getNodeByKey(dialogTargetKey);
             if ($isListItemNode(node)) {
                 const children = node.getChildren();
-                children.forEach(c => {
-                    if ($isReminderNode(c)) c.remove();
-                });
+                children.forEach(c => { if ($isReminderNode(c)) c.remove(); });
             }
         });
     };
@@ -728,25 +628,20 @@ export default function TodoView() {
             const root = $getRoot();
             const now = Date.now();
             const threshold = {
-                'all': 0,
-                '1month': 30 * 24 * 3600 * 1000,
-                '6months': 180 * 24 * 3600 * 1000,
-                '1year': 365 * 24 * 3600 * 1000
+                'all': 0, '1month': 30 * 24 * 3600 * 1000,
+                '6months': 180 * 24 * 3600 * 1000, '1year': 365 * 24 * 3600 * 1000
             }[mode];
 
             function walkAndRemove(node: LexicalNode) {
                 if ($isListItemNode(node) && node.getChecked()) {
                     let shouldRemove = false;
-                    if (mode === 'all') {
-                        shouldRemove = true;
-                    } else {
+                    if (mode === 'all') shouldRemove = true;
+                    else {
                         const children = node.getChildren();
                         const reminderNode = children.find(c => $isReminderNode(c)) as ReminderNode | undefined;
                         if (reminderNode) {
                             const data = reminderNode.getData();
-                            if (data.completedAt && (now - data.completedAt) > threshold) {
-                                shouldRemove = true;
-                            }
+                            if (data.completedAt && (now - data.completedAt) > threshold) shouldRemove = true;
                         }
                     }
                     if (shouldRemove) {
@@ -754,7 +649,6 @@ export default function TodoView() {
                         return;
                     }
                 }
-
                 if ('getChildren' in node && typeof (node as any).getChildren === 'function') {
                     const children = [...(node as any).getChildren()];
                     children.forEach(walkAndRemove);
@@ -769,7 +663,6 @@ export default function TodoView() {
     }, []);
 
     const isCompletedMode = filterMode === 'completed';
-
     const headerConfig: Record<string, { text: string; color: string }> = {
         all: { text: '待办事项', color: '#007aff' },
         today: { text: '今天', color: '#08bcff' },
@@ -777,7 +670,6 @@ export default function TodoView() {
         important: { text: '重要', color: '#ff8d30' },
         completed: { text: '完成', color: '#8e8e93' }
     };
-
     const currentHeader = headerConfig[filterMode] || headerConfig['all'];
 
     return (
@@ -818,6 +710,11 @@ export default function TodoView() {
                         onEnter={handleEnter}
                         onDelete={handleDelete}
                         onOpenReminder={() => openReminderSettings(todo.key, todo.reminder)}
+                        highlightRange={
+                            (detectionResult && detectionResult.id === todo.key && shouldShowSuggestion(todo, detectionResult.result))
+                                ? detectionResult.result.range
+                                : undefined
+                        }
                     />
                 ))}
                 {todos.length === 0 ? (
@@ -826,19 +723,13 @@ export default function TodoView() {
                     </div>
                 ) : filterMode !== 'completed' && (
                     <div className="todo-fill-area" onClick={() => {
-                        // 查找任意空白草稿
                         const emptyDraft = todos.find(t => t.text === "");
                         if (emptyDraft) {
-                            // 如果存在空白草稿，删除它（取消新增）
                             handleDelete(emptyDraft.key);
                         } else {
-                            // 在 Lexical 树的真正末尾插入新节点
-                            // 这样新草稿会出现在文档末尾，而不是排序后列表的末尾
                             editor.update(() => {
                                 const root = $getRoot();
                                 let lastListItem: ListItemNode | null = null;
-
-                                // 遍历找到最后一个 CheckList 中的 ListItemNode
                                 function findLastListItem(node: LexicalNode) {
                                     if ($isListItemNode(node)) {
                                         const parent = node.getParent();
@@ -855,24 +746,16 @@ export default function TodoView() {
                                 if (lastListItem) {
                                     const newNode = $createListItemNode();
                                     newNode.setChecked(false);
-
-                                    // Apply default reminder based on current filter mode
-                                    // so the new item appears in the current filtered view
                                     const defaultReminder = getDefaultReminder(filterMode);
-                                    if (defaultReminder) {
-                                        newNode.append($createReminderNode(defaultReminder));
-                                    }
-
+                                    if (defaultReminder) newNode.append($createReminderNode(defaultReminder));
                                     lastListItem.insertAfter(newNode);
                                     pendingFocusKey.current = newNode.getKey();
                                 } else {
-                                    // 没有任何待办事项时，创建第一个
                                     handleCreateFirst();
                                 }
                             });
                         }
                     }}>
-                        {/* Invisible clickable area */}
                     </div>
                 )}
             </div>
@@ -884,6 +767,14 @@ export default function TodoView() {
                 onClose={() => setIsDialogOpen(false)}
                 onSave={saveReminder}
             />
+
+            {detectionResult && shouldShowSuggestion(todos.find(t => t.key === detectionResult.id), detectionResult.result) && (
+                <DateSuggestionPopup
+                    result={detectionResult.result}
+                    targetRef={itemRefs.current[detectionResult.id]}
+                    onApply={applyDateSuggestion}
+                />
+            )}
         </div>
     );
 }
@@ -899,21 +790,17 @@ interface RowProps {
     onOpenReminder: () => void;
     isCompletedMode: boolean;
     isRinging: boolean;
+    highlightRange?: [number, number];
 }
 
-function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode, isRinging }: RowProps) {
+function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode, isRinging, highlightRange }: RowProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [localText, setLocalText] = useState(todo.text);
     const isComposing = useRef(false);
-
-    // Animation state
     const [isClosing, setIsClosing] = useState(false);
     const [showShimmer, setShowShimmer] = useState(false);
 
-
     useEffect(() => {
-        // Disable shimmer if in completed mode
-        // Only show shimmer if the task was auto-refreshed recently (within 5 seconds)
         if (!isCompletedMode && todo.reminder?.autoRefreshedAt) {
             const isRecent = Date.now() - todo.reminder.autoRefreshedAt < 5000;
             if (isRecent) {
@@ -940,8 +827,6 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
         if (checked) {
             const isRecurring = todo.reminder && todo.reminder.repeatType !== 'none';
             if (isRecurring) {
-                // For recurring todos, don't trigger the closing animation
-                // handleToggle will manage the delay and replacement
                 onToggle(true);
             } else {
                 setIsClosing(true);
@@ -958,34 +843,23 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            if (todo.checked || isCompletedMode) {
-                // 已完成项目或在完成视图中，禁止回车新增逻辑
-                return;
-            }
-            if (localText === '') {
-                // 如果用户没有输入就直接回车，则该空白待办消失（取消新增）
-                onDelete(todo.key);
-            } else {
-                onEnter(todo.key);
-            }
+            if (todo.checked || isCompletedMode) return;
+            if (localText === '') onDelete(todo.key);
+            else onEnter(todo.key);
         } else if (e.key === 'Backspace') {
             const prefix = getPriorityPrefix() || '';
             if (prefix && textareaRef.current &&
                 textareaRef.current.selectionStart === prefix.length &&
                 textareaRef.current.selectionEnd === prefix.length) {
-
                 e.preventDefault();
-                // Downgrade priority
                 const currentPriority = todo.reminder?.priority || 'none';
                 let nextPriority: 'none' | 'low' | 'medium' | 'high' = 'none';
                 if (currentPriority === 'high') nextPriority = 'medium';
                 else if (currentPriority === 'medium') nextPriority = 'low';
                 else if (currentPriority === 'low') nextPriority = 'none';
-
                 onPriorityChange(todo.key, nextPriority);
                 return;
             }
-
             if (localText === '') {
                 e.preventDefault();
                 onDelete(todo.key);
@@ -1008,27 +882,19 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
         const min = String(d.getMinutes()).padStart(2, '0');
 
         let timeStr = '';
-        if (r.hasDate && r.hasTime) {
-            timeStr = `${m}月${day}日 ${h}:${min}`;
-        } else if (r.hasDate) {
-            timeStr = `${m}月${day}日`;
-        } else if (r.hasTime) {
-            timeStr = `${h}:${min}`;
-        }
+        if (r.hasDate && r.hasTime) timeStr = `${m}月${day}日 ${h}:${min}`;
+        else if (r.hasDate) timeStr = `${m}月${day}日`;
+        else if (r.hasTime) timeStr = `${h}:${min}`;
 
         let cycleStr = '';
-        if (isOverdue) {
-            cycleStr = '已过期';
-        } else {
+        if (isOverdue) cycleStr = '已过期';
+        else {
             const map: Record<string, string> = {
                 'none': '', 'daily': '每天', 'weekdays': '工作日',
                 'weekly': '每周', 'monthly': '每月', 'yearly': '每年'
             };
             cycleStr = map[r.repeatType] || '';
-            // If repeatType is 'none' but has date/time, show "一次性"
-            if (r.repeatType === 'none' && (r.hasDate || r.hasTime)) {
-                cycleStr = '一次性';
-            }
+            if (r.repeatType === 'none' && (r.hasDate || r.hasTime)) cycleStr = '一次性';
         }
 
         if (!cycleStr) return timeStr;
@@ -1046,6 +912,33 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
         }
     };
 
+    const renderMirrorContent = () => {
+        const prefix = getPriorityPrefix() || '';
+        const fullText = (prefix + (localText || " "));
+
+        if (!highlightRange) {
+            return <>{fullText + "\n"}</>;
+        }
+
+        const start = highlightRange[0] + prefix.length;
+        const len = highlightRange[1];
+
+        if (start < 0 || start >= fullText.length) return <>{fullText + "\n"}</>;
+
+        const before = fullText.slice(0, start);
+        const match = fullText.slice(start, start + len);
+        const after = fullText.slice(start + len);
+
+        return (
+            <>
+                {before}
+                <span style={{ color: '#007aff' }}>{match}</span>
+                {after}
+                {"\n"}
+            </>
+        );
+    };
+
     const metaText = getMetaInfo();
     const isOverdue = todo.reminder && new Date().getTime() > todo.reminder.time;
 
@@ -1055,7 +948,6 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
             style={{
                 transform: isClosing ? 'scale(0.95)' : 'scale(1)',
                 opacity: isClosing ? 0 : 1,
-                // Transition all layout properties to ensure smooth upward shift
                 transition: 'opacity 0.3s ease-out, transform 0.3s ease-out, height 0.3s ease-out 0.1s, min-height 0.3s ease-out 0.1s, padding 0.3s ease-out 0.1s',
                 height: isClosing ? 0 : 'auto',
                 minHeight: isClosing ? 0 : 32,
@@ -1075,9 +967,17 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
 
             <div className="todo-content-wrapper">
                 <div className="todo-input-mirror-container">
-                    {/* Mirroring element that drives the height */}
-                    <div className="todo-input-mirror" aria-hidden="true">
-                        {getPriorityPrefix()}{localText || " "}{"\n"}
+                    <div
+                        className="todo-input-mirror"
+                        aria-hidden="true"
+                        style={{
+                            visibility: 'visible',
+                            color: 'inherit',
+                            zIndex: 0,
+                            pointerEvents: 'none'
+                        }}
+                    >
+                        {renderMirrorContent()}
                     </div>
 
                     <textarea
@@ -1115,6 +1015,10 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                         placeholder="输入待办事项"
                         spellCheck={false}
                         readOnly={todo.checked || isCompletedMode}
+                        style={{
+                            color: highlightRange ? 'transparent' : 'inherit',
+                            caretColor: 'var(--text-color, #1a1a1a)'
+                        }}
                     />
                 </div>
 

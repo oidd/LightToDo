@@ -398,6 +398,36 @@ struct QuillEditor: NSViewRepresentable {
                     NotificationCenter.default.post(name: NSNotification.Name("TriggerReminderPreview"), object: nil)
                 }
                 
+            case "detectDate":
+                // 1. Get text and ID from payload
+                if let text = data["text"] as? String, let reqId = data["id"] as? String {
+                    // 2. Run detection on background thread to avoid blocking UI
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        if let result = DateDetector.shared.detect(in: text) {
+                            // 3. Serialize result
+                            do {
+                                let encoder = JSONEncoder()
+                                let jsonData = try encoder.encode(result)
+                                if let jsonString = String(data: jsonData, encoding: .utf8) {
+                                    // 4. Send back to webview
+                                    DispatchQueue.main.async {
+                                        let escaped = jsonString.replacingOccurrences(of: "\\", with: "\\\\")
+                                                                .replacingOccurrences(of: "'", with: "\\'")
+                                        self.webView?.evaluateJavaScript("window.onDateDetected && window.onDateDetected('\(reqId)', '\(escaped)')") { _, _ in }
+                                    }
+                                }
+                            } catch {
+                                print("Date encoding error: \(error)")
+                            }
+                        } else {
+                            // No match - optional: tell webview to clear suggestion
+                             DispatchQueue.main.async {
+                                 self.webView?.evaluateJavaScript("window.onDateDetected && window.onDateDetected('\(reqId)', null)") { _, _ in }
+                             }
+                        }
+                    }
+                }
+                
             default:
                 break
             }
