@@ -882,9 +882,27 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
         const min = String(d.getMinutes()).padStart(2, '0');
 
         let timeStr = '';
-        if (r.hasDate && r.hasTime) timeStr = `${m}月${day}日 ${h}:${min}`;
-        else if (r.hasDate) timeStr = `${m}月${day}日`;
-        else if (r.hasTime) timeStr = `${h}:${min}`;
+        if (r.hasDate) {
+            const todayDate = new Date();
+            todayDate.setHours(0, 0, 0, 0);
+            const tomorrowDate = new Date(todayDate);
+            tomorrowDate.setDate(todayDate.getDate() + 1);
+
+            const targetDate = new Date(r.time);
+            targetDate.setHours(0, 0, 0, 0);
+
+            let dateLabel = `${m}月${day}日`;
+            if (targetDate.getTime() === todayDate.getTime()) {
+                dateLabel = '今天';
+            } else if (targetDate.getTime() === tomorrowDate.getTime()) {
+                dateLabel = '明天';
+            }
+
+            if (r.hasTime) timeStr = `${dateLabel} ${h}:${min}`;
+            else timeStr = dateLabel;
+        } else if (r.hasTime) {
+            timeStr = `${h}:${min}`;
+        }
 
         let cycleStr = '';
         if (isOverdue) cycleStr = '已过期';
