@@ -45,19 +45,97 @@ export default function TodoView() {
     const { detectionResult, detectDate, clearDetection, invalidateRequests } = useDateDetection();
     const detectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Focus inputs on right-click (context menu) to ensure native menu works (Cut/Copy/Paste/Services)
-    // and that deleteFocusedTodo knows which item to delete.
+    // Multi-selection State
+    const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+    const [lastClickedKey, setLastClickedKey] = useState<string | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, keys: string[] } | null>(null);
+
+    const handleRowClick = useCallback((key: string, e: React.MouseEvent) => {
+        const isShift = e.shiftKey;
+        const isMeta = e.metaKey || e.ctrlKey;
+
+        if (isShift && lastClickedKey) {
+            const allKeys = todos.map(t => t.key);
+            const currentIndex = allKeys.indexOf(key);
+            const lastIndex = allKeys.indexOf(lastClickedKey);
+            if (currentIndex !== -1 && lastIndex !== -1) {
+                const start = Math.min(currentIndex, lastIndex);
+                const end = Math.max(currentIndex, lastIndex);
+                const newSelection = new Set(selectedKeys);
+                for (let i = start; i <= end; i++) {
+                    newSelection.add(allKeys[i]);
+                }
+                setSelectedKeys(newSelection);
+            }
+        } else if (isMeta) {
+            const newSelection = new Set(selectedKeys);
+            if (newSelection.has(key)) {
+                newSelection.delete(key);
+            } else {
+                newSelection.add(key);
+            }
+            setSelectedKeys(newSelection);
+        } else {
+            // Normal click: if we were multi-selecting, clear it.
+            if (selectedKeys.size > 0) {
+                setSelectedKeys(new Set());
+            }
+            // Ensure focus on the textarea if not already clicking it
+            const target = e.target as HTMLElement;
+            if (target.tagName !== 'TEXTAREA') {
+                itemRefs.current[key]?.focus();
+            }
+        }
+        setLastClickedKey(key);
+    }, [selectedKeys, lastClickedKey, todos]);
+
+    const handleDeleteSelected = useCallback(() => {
+        const keysToDelete = contextMenu ? contextMenu.keys : Array.from(selectedKeys);
+        if (keysToDelete.length === 0) return;
+
+        editor.update(() => {
+            keysToDelete.forEach(key => {
+                const node = $getNodeByKey(key);
+                if (node) {
+                    node.remove();
+                }
+            });
+        });
+        setSelectedKeys(new Set());
+        setLastClickedKey(null);
+        setContextMenu(null);
+    }, [editor, selectedKeys, contextMenu]);
+
+    // Close context menu on any global click
+    useEffect(() => {
+        const handleClick = () => setContextMenu(null);
+        window.addEventListener('click', handleClick);
+        return () => window.removeEventListener('click', handleClick);
+    }, []);
+
+    // Focus inputs on right-click (context menu) and handle multi-selection context menu
     useEffect(() => {
         const handleContextMenu = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
-            // Detect if we clicked anywhere inside a todo row
             const todoRow = target.closest('.todo-row');
             if (todoRow) {
-                const textarea = todoRow.querySelector('textarea.todo-input') as HTMLElement;
-                if (textarea) {
-                    // Force focus on the textarea so native menu operations work
-                    if (document.activeElement !== textarea) {
-                        textarea.focus();
+                const rowKey = todoRow.getAttribute('data-todo-key');
+                if (rowKey) {
+                    if (selectedKeys.size > 1 && selectedKeys.has(rowKey)) {
+                        e.preventDefault();
+                        setContextMenu({
+                            x: e.clientX,
+                            y: e.clientY,
+                            keys: Array.from(selectedKeys)
+                        });
+                        return;
+                    }
+
+                    const textarea = todoRow.querySelector('textarea.todo-input') as HTMLElement;
+                    if (textarea) {
+                        if (document.activeElement !== textarea) {
+                            textarea.focus();
+                        }
                     }
                 }
             }
@@ -65,7 +143,7 @@ export default function TodoView() {
 
         document.addEventListener('contextmenu', handleContextMenu);
         return () => document.removeEventListener('contextmenu', handleContextMenu);
-    }, []);
+    }, [selectedKeys]);
 
     const updateTodos = useCallback(() => {
         editor.getEditorState().read(() => {
@@ -710,6 +788,8 @@ export default function TodoView() {
                         onEnter={handleEnter}
                         onDelete={handleDelete}
                         onOpenReminder={() => openReminderSettings(todo.key, todo.reminder)}
+                        isSelected={selectedKeys.has(todo.key)}
+                        onRowClick={(e) => handleRowClick(todo.key, e)}
                         highlightRange={
                             (detectionResult && detectionResult.id === todo.key && shouldShowSuggestion(todo, detectionResult.result))
                                 ? detectionResult.result.range
@@ -775,6 +855,53 @@ export default function TodoView() {
                     onApply={applyDateSuggestion}
                 />
             )}
+
+            {contextMenu && (
+                <div
+                    className="todo-custom-context-menu"
+                    style={{
+                        position: 'fixed',
+                        top: contextMenu.y,
+                        left: contextMenu.x,
+                        zIndex: 1000,
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        backdropFilter: 'blur(10px)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        borderRadius: '10px',
+                        padding: '4px',
+                        minWidth: '160px',
+                        border: '1px solid rgba(0,0,0,0.1)'
+                    }}
+                >
+                    <div
+                        className="menu-item"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSelected();
+                        }}
+                        style={{
+                            padding: '10px 14px',
+                            cursor: 'pointer',
+                            color: '#ff3b30',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 59, 48, 0.1)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                        </svg>
+                        删除所选项目 ({contextMenu.keys.length})
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -791,9 +918,11 @@ interface RowProps {
     isCompletedMode: boolean;
     isRinging: boolean;
     highlightRange?: [number, number];
+    isSelected: boolean;
+    onRowClick: (e: React.MouseEvent) => void;
 }
 
-function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode, isRinging, highlightRange }: RowProps) {
+function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode, isRinging, highlightRange, isSelected, onRowClick }: RowProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [localText, setLocalText] = useState(todo.text);
     const isComposing = useRef(false);
@@ -962,7 +1091,9 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
 
     return (
         <div
-            className={`todo-row ${todo.checked ? 'completed' : ''} ${todo.reminder ? 'has-reminder' : ''}`}
+            className={`todo-row ${todo.checked ? 'completed' : ''} ${todo.reminder ? 'has-reminder' : ''} ${isSelected ? 'selected' : ''}`}
+            data-todo-key={todo.key}
+            onClick={onRowClick}
             style={{
                 transform: isClosing ? 'scale(0.95)' : 'scale(1)',
                 opacity: isClosing ? 0 : 1,
@@ -971,7 +1102,8 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                 minHeight: isClosing ? 0 : 32,
                 paddingTop: isClosing ? 0 : 3,
                 paddingBottom: isClosing ? 0 : 6,
-                overflow: 'hidden'
+                overflow: 'hidden',
+                backgroundColor: isSelected ? 'rgba(0, 122, 255, 0.1)' : 'transparent'
             }}
         >
             <div className="todo-checkbox-wrapper">
@@ -1028,6 +1160,11 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                             onTextChange(todo.key, newText);
                         }}
                         onKeyDown={handleKeyDown}
+                        onMouseDown={(e) => {
+                            if (e.shiftKey || e.metaKey || e.ctrlKey) {
+                                e.preventDefault();
+                            }
+                        }}
                         onBlur={() => onTextChange(todo.key, localText)}
                         rows={1}
                         placeholder="输入待办事项"
