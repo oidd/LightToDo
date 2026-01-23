@@ -58,7 +58,7 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
 
     const handleSave = () => {
         let timestamp = 0;
-        if (date && time) {
+        if (hasDateTime && date && time) {
             timestamp = new Date(`${date}T${time}:00`).getTime();
         }
 

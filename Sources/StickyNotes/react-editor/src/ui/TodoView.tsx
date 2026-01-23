@@ -17,6 +17,7 @@ export interface TodoItem {
     children?: TodoItem[];
     isSubItem?: boolean;
     deadlineInvalid?: boolean;
+    index: number;
 }
 
 export default function TodoView() {
@@ -168,7 +169,8 @@ export default function TodoView() {
                             key: node.getKey(),
                             text: text,
                             checked: node.getChecked() || false,
-                            reminder
+                            reminder,
+                            index: allItems.length
                         });
                     }
                 }
@@ -219,6 +221,13 @@ export default function TodoView() {
                 }
             });
 
+            // CRITICAL: Sort children by document index to guarantee order
+            allItems.forEach(item => {
+                if (item.children && item.children.length > 1) {
+                    item.children.sort((a, b) => a.index - b.index);
+                }
+            });
+
             const counts = {
                 all: allItems.filter(t => !t.checked && !t.isSubItem).length, // Only count main items
                 today: allItems.filter(t => !t.checked && !t.isSubItem && t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday).length,
@@ -238,17 +247,7 @@ export default function TodoView() {
             }
 
             // 2. Filter logic (Main items only first)
-            // Sub-items should generally be hidden unless their parent is visible or they match the filter specifically.
-            // Requirement 3: "This feature only works in 'All Todos' page".
-            // Implementation: In 'All', show parents and expand children.
-            // In other views, if a child matches, show it? Or show parent?
-            // "Other pages reference 'All' content matching conditions".
-            // Typically sub-tasks show under parent.
-            // Simplified approach: Filter works on ALL items, but then we regroup.
-
             const strictMatches = allItems.filter(t => {
-                // If sub-task feature only active in 'All', maybe simpler logic?
-                // But data structure exists.
                 if (t.checked) {
                     return filterMode === 'completed';
                 }
@@ -279,40 +278,30 @@ export default function TodoView() {
                 return isStrict || isSticky;
             });
 
-            if (searchQuery.trim()) {
-                const lowerQuery = searchQuery.toLowerCase();
+            const searchQueryTrim = searchQuery.trim();
+            if (searchQueryTrim) {
+                const lowerQuery = searchQueryTrim.toLowerCase();
                 finalFiltered = finalFiltered.filter(t => t.text.toLowerCase().includes(lowerQuery));
+
+                // Requirement: In 'All' mode, if a child matches search, parent must be shown
+                if (filterMode === 'all') {
+                    const visibleAtoms = new Set(finalFiltered.map(t => t.key));
+                    allItems.forEach(t => {
+                        if (t.isSubItem && t.parentKey && visibleAtoms.has(t.key)) {
+                            if (!visibleAtoms.has(t.parentKey)) {
+                                const parentItem = itemMap.get(t.parentKey);
+                                if (parentItem) {
+                                    finalFiltered.push(parentItem);
+                                    visibleAtoms.add(t.parentKey);
+                                }
+                            }
+                        }
+                    });
+                }
             }
 
-            // 3. Separation: Main items vs Sub items
-            // We want to sort Main Items, and then inject Sub Items under them.
-            // Sub-items that appear in finalFiltered but whose parents are NOT in finalFiltered
-            // should probably be shown as independent items or contextually.
-            // But per Ref 1: "Sub-task only works in All Todos page".
-            // Let's assume for now we primarily sort everything, then sticky sub-items to parents.
-
-            // Only sort items that are NOT sub-items (roots)
-            // But wait, if we are in 'Today', we might see a sub-item whose parent is NOT today.
-            // For logic simplicity and "Sub-tasks follow parent":
-            // We sort the ROOT items. Children are attached to roots.
-
-            const rootItems = finalFiltered.filter(t => !t.isSubItem);
-            // If a sub-item matches filter but parent doesn't, do we show it?
-            // "Other pages are references".
-            // If I have a sub-task due Today, it should show in Today.
-            // If parent is not due Today, parent might not be in 'rootItems'.
-            // In 'All', we rely on parent structure.
-
-            // Re-strategy:
-            // 1. Identify all items to show (finalFiltered).
-            // 2. Identify their parents. If parent is missing from finalFiltered, we might need to fetch it or treat sub-item as root for this view.
-            // Given "Feature only works in All Todos", maybe in 'Today' they just look like normal items?
-            // User Ref 2: "This feature only works in 'All Todos' page".
-            // So in 'Today', sub-items behave like normal items (flat).
-            // In 'All', they nest.
-
             const isAllMode = filterMode === 'all';
-
+            const rootItems = finalFiltered.filter(t => !t.isSubItem);
             const itemsToSort = isAllMode ? rootItems : finalFiltered;
 
             const priorityMap: Record<string, number> = {
@@ -324,67 +313,50 @@ export default function TodoView() {
 
             const priorityItems: TodoItem[] = [];
             const dateTimeItems: TodoItem[] = [];
-            const pinnedPositions: number[] = []; // For items without date/priority, preserving index
+            const others: TodoItem[] = [];
 
-            // We need to preserve relative order of non-sorted items from the original list order
-            // which comes from document order (walkTree).
             itemsToSort.forEach((t) => {
                 if (hasPriority(t)) {
                     priorityItems.push(t);
                 } else if (hasDateTime(t)) {
                     dateTimeItems.push(t);
                 } else {
-                    // Keep them in separate bucket or structure?
-                    // The original logic tried to 'pin' them by index, but index is relative to finalFiltered.
+                    others.push(t);
                 }
             });
 
             // Simplified Sort Logic for Roots
-            // 1. Priority Items sorted by Priority -> Deadline
+            const subSortByDeadline = (a: TodoItem, b: TodoItem) => {
+                const timeA = (a.reminder?.hasDate || a.reminder?.hasTime) ? (a.reminder?.time || 0) : 0;
+                const timeB = (b.reminder?.hasDate || b.reminder?.hasTime) ? (b.reminder?.time || 0) : 0;
+                if (timeA > 0 && timeB > 0) {
+                    if (timeA !== timeB) return timeA - timeB;
+                } else if (timeA > 0) return -1;
+                else if (timeB > 0) return 1;
+                return a.index - b.index;
+            };
+
             priorityItems.sort((a, b) => {
                 const pA = priorityMap[a.reminder!.priority];
                 const pB = priorityMap[b.reminder!.priority];
                 if (pA !== pB) return pB - pA;
                 if (sortMode === 'byDeadline') {
-                    const timeA = a.reminder?.time || 0;
-                    const timeB = b.reminder?.time || 0;
-                    if (timeA > 0 && timeB > 0) return timeA - timeB;
+                    return subSortByDeadline(a, b);
                 }
-                return 0;
+                return a.index - b.index;
             });
 
-            // 2. Date Time Items sorted by Deadline
             dateTimeItems.sort((a, b) => {
                 if (sortMode === 'byDeadline') {
-                    const timeA = a.reminder?.time || 0;
-                    const timeB = b.reminder?.time || 0;
-                    if (timeA > 0 && !timeB) return -1;
-                    if (!timeA && timeB) return 1;
-                    if (timeA > 0 && timeB > 0) return timeA - timeB;
+                    return subSortByDeadline(a, b);
                 }
-                return 0;
+                return a.index - b.index;
             });
 
-            // 3. "Pinned" / Other items:
-            // The original logic tried to merge them back into original slots.
-            // Let's grab them from itemsToSort excluding the ones we just took.
-            const sortedSet = new Set([...priorityItems, ...dateTimeItems].map(t => t.key));
-            const others = itemsToSort.filter(t => !sortedSet.has(t.key));
-
-            // Merge: Priority -> DateTime -> Others (or Others in their original places?)
-            // Original logic: Pinned items stay at their index. Sorted items fill the gaps.
-            const totalCount = itemsToSort.length;
-            const result: TodoItem[] = new Array(totalCount);
-            const othersSet = new Set(others.map(t => t.key));
-
-            // Reconstruct 'pinned' indices based on original document order
-            // If an item in itemsToSort is in 'others', it goes to its relative position?
-            // Actually, simplified: Priority Top, then Timed, then Others?
-            // "Pinned" logic usually means "Manual Sort" for things without criteria.
-            // Current code implies: if it has priority/date, it bubbles to top sections. If not, it stays put?
-            // Let's replicate original:
-            // Construct the sorted pool to fill gaps
+            // Merge everything back while keeping 'others' in their original doc slots if possible
+            const result: TodoItem[] = new Array(itemsToSort.length);
             const sortedPool = [...priorityItems, ...dateTimeItems];
+            const othersSet = new Set(others.map(t => t.key));
             let poolIndex = 0;
 
             for (let i = 0; i < itemsToSort.length; i++) {
@@ -396,9 +368,6 @@ export default function TodoView() {
                 }
             }
 
-            // At this point 'result' contains sorted Root items (if All mode) or All items (if filtered).
-            // Now, if 'All' mode, we inject children.
-
             const finalFlatList: TodoItem[] = [];
 
             if (isAllMode) {
@@ -406,19 +375,13 @@ export default function TodoView() {
                     if (root) {
                         finalFlatList.push(root);
                         if (root.children && root.children.length > 0) {
-                            // Sort sub-items by deadline
-                            const subs = [...root.children];
-                            subs.sort((a, b) => {
-                                const tA = a.reminder?.time || 0;
-                                const tB = b.reminder?.time || 0;
-                                // Zero time (no deadline) usually goes last? Or first?
-                                // "按照其截止时间重新排序" -> usually ascending.
-                                if (tA > 0 && tB > 0) return tA - tB;
-                                if (tA > 0) return -1; // Has time comes before no time?
-                                if (tB > 0) return 1;
-                                return 0;
-                            });
-                            finalFlatList.push(...subs);
+                            if (sortMode === 'byDeadline') {
+                                const subs = [...root.children];
+                                subs.sort(subSortByDeadline);
+                                finalFlatList.push(...subs);
+                            } else {
+                                finalFlatList.push(...root.children);
+                            }
                         }
                     }
                 });
@@ -522,46 +485,7 @@ export default function TodoView() {
     }, [todos, editor]);
 
     // Expose sub-item actions for Swift context menu (MOVED DOWN)
-
-    // Auto-flatten deep nesting (3+ levels) to ensure max 2 levels (Root -> Child)
-    useEffect(() => {
-        const itemsToFlatten: { key: string, newParentKey?: string }[] = [];
-        const itemMap = new Map(todos.map(t => [t.key, t]));
-
-        todos.forEach(t => {
-            if (t.isSubItem && t.parentKey) {
-                const parent = itemMap.get(t.parentKey);
-                // If parent is ALSO a sub-item, we have > 2 levels.
-                if (parent && parent.isSubItem) {
-                    // Flatten: Make 't' a sibling of 'parent' (adopt parent's parent)
-                    itemsToFlatten.push({ key: t.key, newParentKey: parent.parentKey });
-                }
-            }
-        });
-
-        if (itemsToFlatten.length > 0) {
-            editor.update(() => {
-                itemsToFlatten.forEach(({ key, newParentKey }) => {
-                    const node = $getNodeByKey(key);
-                    if ($isListItemNode(node)) {
-                        const children = node.getChildren();
-                        const reminderNode = children.find(c => $isReminderNode(c)) as ReminderNode | undefined;
-                        if (reminderNode) {
-                            const data = reminderNode.getData();
-                            if (newParentKey) {
-                                reminderNode.setData({ ...data, parentKey: newParentKey });
-                            } else {
-                                // Become root
-                                const newData = { ...data };
-                                delete newData.parentKey;
-                                reminderNode.setData(newData);
-                            }
-                        }
-                    }
-                });
-            });
-        }
-    }, [todos, editor]);
+    // Auto-flatten removed - prevention is in handleMakeSubItem instead
 
     useEffect(() => {
         if (pendingFocusKey.current) {
