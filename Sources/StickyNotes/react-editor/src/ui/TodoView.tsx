@@ -752,14 +752,25 @@ export default function TodoView() {
         });
     };
 
-    const getDefaultReminder = (mode: string): ReminderData | undefined => {
+    const getDefaultReminder = (mode: string): ReminderData => {
         const now = new Date();
         const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0).getTime();
-        const uuid = crypto.randomUUID();
+        const uuid = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+
         if (mode === 'today') return { time: endOfToday, repeatType: 'none', originalTime: endOfToday, priority: 'none', hasReminder: false, hasDate: true, hasTime: true, uuid };
         if (mode === 'important') return { time: 0, repeatType: 'none', originalTime: 0, priority: 'medium', hasReminder: false, hasDate: false, hasTime: false, uuid };
         if (mode === 'recurring') return { time: endOfToday, repeatType: 'daily', originalTime: endOfToday, priority: 'none', hasReminder: false, hasDate: true, hasTime: true, uuid };
-        return undefined;
+
+        return {
+            time: 0,
+            repeatType: 'none',
+            originalTime: 0,
+            priority: 'none',
+            hasReminder: false,
+            hasDate: false,
+            hasTime: false,
+            uuid
+        };
     };
 
     const handleMakeSubItem = useCallback(() => {
@@ -789,6 +800,34 @@ export default function TodoView() {
         }
 
         editor.update(() => {
+            // Pre-pass: Ensure parentTodo has a ReminderNode/UUID
+            const parentNode = $getNodeByKey(parentTodo.key);
+            let finalParentUuid = parentTodo.uuid;
+
+            if ($isListItemNode(parentNode)) {
+                const pChildren = parentNode.getChildren();
+                let pReminder = pChildren.find(c => $isReminderNode(c)) as ReminderNode | undefined;
+                if (!pReminder) {
+                    const newUuid = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+                    pReminder = $createReminderNode({
+                        time: 0,
+                        repeatType: 'none',
+                        originalTime: 0,
+                        priority: 'none',
+                        hasReminder: false,
+                        hasDate: false,
+                        hasTime: false,
+                        uuid: newUuid
+                    });
+                    parentNode.append(pReminder);
+                    finalParentUuid = newUuid;
+                } else {
+                    finalParentUuid = pReminder.getData().uuid;
+                }
+            }
+
+            if (!finalParentUuid) return;
+
             keysToConvert.forEach(key => {
                 const node = $getNodeByKey(key);
                 if ($isListItemNode(node)) {
@@ -797,19 +836,20 @@ export default function TodoView() {
 
                     if (reminderNode) {
                         const data = reminderNode.getData();
-                        reminderNode.setData({ ...data, parentUuid: parentTodo.uuid });
+                        reminderNode.setData({ ...data, parentUuid: finalParentUuid });
                     } else {
                         // Should rare, but create one if missing
+                        const itemUuid = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
                         node.append($createReminderNode({
                             time: 0,
                             repeatType: 'none',
-                            parentUuid: parentTodo.uuid,
+                            parentUuid: finalParentUuid,
                             originalTime: 0,
                             priority: 'none',
                             hasReminder: false,
                             hasDate: false,
                             hasTime: false,
-                            uuid: crypto.randomUUID()
+                            uuid: itemUuid
                         }));
                     }
                 }
@@ -860,16 +900,9 @@ export default function TodoView() {
                 // Inherit parentKey if valid
                 const defaultReminder = getDefaultReminder(filterMode);
                 const reminderData: any = {
-                    ...(defaultReminder || {
-                        time: 0,
-                        repeatType: 'none',
-                        originalTime: 0,
-                        priority: 'none',
-                        hasReminder: false,
-                        hasDate: false,
-                        hasTime: false,
-                    }),
-                    uuid: crypto.randomUUID()
+                    ...defaultReminder,
+                    // If defaultReminder already had a uuid (it does now), we can keep it or refresh if we want uniqueness.
+                    // But getDefaultReminder generates a fresh one.
                 };
 
                 if (parentUuid || parentKey) {
@@ -896,8 +929,7 @@ export default function TodoView() {
             const listNode = $createListNode('check');
             const listItem = $createListItemNode();
             const defaultReminder = getDefaultReminder(filterMode);
-            // First item cannot be a sub-item, so no parentKey needed logic here
-            if (defaultReminder) listItem.append($createReminderNode(defaultReminder));
+            listItem.append($createReminderNode(defaultReminder));
             listNode.append(listItem);
             root.append(listNode);
             pendingFocusKey.current = listItem.getKey();
@@ -991,6 +1023,7 @@ export default function TodoView() {
         completed: { text: '完成', color: '#8e8e93' }
     };
     const currentHeader = headerConfig[filterMode] || headerConfig['all'];
+    const hasChildlessRoots = filterMode === 'planned' && todos.some(t => !t.isSubItem && (!t.children || t.children.length === 0));
 
     return (
         <div className={`todo-view ${sortMode === 'byDeadline' ? 'sorted-by-deadline' : 'sorted-manual'} ${filterMode === 'completed' ? 'completed-mode' : ''}`}>
@@ -998,6 +1031,11 @@ export default function TodoView() {
                 {currentHeader.text}
                 <div className="todo-subheader">
                     {isCompletedMode ? `${todos.length}条已完成事项` : `${todos.length}条待办事项`}
+                    {hasChildlessRoots && (
+                        <span style={{ color: '#ff3b30', marginLeft: 8, fontWeight: 'normal' }}>
+                            未设置“子事项”的待办事项稍后会被移动到“全部待办事项”
+                        </span>
+                    )}
                     {isCompletedMode && (
                         <>
                             <span className="dot-separator">&bull;</span>
@@ -1070,7 +1108,7 @@ export default function TodoView() {
                                     const newNode = $createListItemNode();
                                     newNode.setChecked(false);
                                     const defaultReminder = getDefaultReminder(filterMode);
-                                    if (defaultReminder) newNode.append($createReminderNode(defaultReminder));
+                                    newNode.append($createReminderNode(defaultReminder));
                                     lastListItem.insertAfter(newNode);
                                     pendingFocusKey.current = newNode.getKey();
                                 } else {
