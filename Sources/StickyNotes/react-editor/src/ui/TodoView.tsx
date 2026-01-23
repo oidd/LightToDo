@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { $getRoot, $getNodeByKey, TextNode, LexicalNode, NodeKey } from 'lexical';
+import { $getRoot, $getNodeByKey, TextNode, LexicalNode, NodeKey, $nodesOfType } from 'lexical';
 import { $isListItemNode, $isListNode, ListItemNode, $createListItemNode, $createListNode } from '@lexical/list';
 import { $createReminderNode, $isReminderNode, ReminderNode, ReminderData } from '../nodes/ReminderNode';
 import TodoDetailsPanel from './TodoDetailsPanel';
@@ -29,6 +29,28 @@ export default function TodoView() {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const pendingFocusKey = useRef<string | null>(null);
     const itemRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+
+    const cleanupEmptyTodos = useCallback(() => {
+        editor.update(() => {
+            const listItems = $nodesOfType(ListItemNode);
+            listItems.forEach(node => {
+                let text = node.getTextContent();
+                // Strip priority markers for emptiness check
+                text = text.replace(/^(!{1,3}\s*)/, '').trim();
+
+                if (text === '') {
+                    // Check if this node is currently focused
+                    const isFocused = Object.entries(itemRefs.current).some(([key, el]) => {
+                        return el === document.activeElement && key === node.getKey();
+                    });
+
+                    if (!isFocused) {
+                        node.remove();
+                    }
+                }
+            });
+        });
+    }, [editor]);
 
     // Dialog State
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -428,6 +450,7 @@ export default function TodoView() {
 
     useEffect(() => {
         (window as any).setFilterMode = (mode: string) => {
+            cleanupEmptyTodos();
             setFilterMode(mode);
             displayedKeys.current.clear();
         };
@@ -508,7 +531,19 @@ export default function TodoView() {
                 }
             });
         };
-    }, [todos, editor]);
+
+        const handleGlobalMouseDown = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (!target.closest('.todo-row') && !target.closest('.todo-details-panel') && !target.closest('.dropdown')) {
+                cleanupEmptyTodos();
+            }
+        };
+
+        document.addEventListener('mousedown', handleGlobalMouseDown);
+        return () => {
+            document.removeEventListener('mousedown', handleGlobalMouseDown);
+        };
+    }, [todos, editor, cleanupEmptyTodos]);
 
     // Expose sub-item actions for Swift context menu (MOVED DOWN)
     // Auto-flatten removed - prevention is in handleMakeSubItem instead
