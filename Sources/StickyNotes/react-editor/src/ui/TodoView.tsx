@@ -284,9 +284,10 @@ export default function TodoView() {
                             matches = !!(t.reminder && t.reminder.priority !== 'none');
                             break;
                         case 'planned':
-                            // Root matches if it has children, Child always matches if it exists (parents are already filtered in Group logic)
-                            // But for strict match calculation, we want items that explicitly count towards planned.
-                            matches = !t.isSubItem ? (t.children && t.children.length > 0) : true;
+                            // Root matches if it has children OR if it was already displayed (sticky draft) OR if it was just created (pending focus)
+                            matches = (!t.isSubItem ? (t.children && t.children.length > 0) : true) ||
+                                (displayedKeys.current.has(t.key)) ||
+                                (pendingFocusKey.current === t.key);
                             break;
                         case 'completed':
                             matches = false;
@@ -412,6 +413,8 @@ export default function TodoView() {
                 }
             });
 
+            // Population of displayedKeys for stickiness
+            finalFlatList.forEach(t => displayedKeys.current.add(t.key));
             setTodos(finalFlatList);
         });
     }, [editor, filterMode, searchQuery, sortMode]);
