@@ -3130,8 +3130,8 @@ textarea {
 /* Animated Strike-through */
 /* Conflict removed to ensure single definition */
 
-/* Only animate fade away if NOT in completed mode */
-.todo-view:not(.completed-mode) .todo-row.completed .todo-input-mirror-container {
+/* Only animate fade away if NOT in completed mode AND NOT a sub-item */
+.todo-view:not(.completed-mode) .todo-row.completed:not(.sub-item) .todo-input-mirror-container {
   animation: fadeAway 0.5s ease-out forwards;
 }
 
@@ -4050,4 +4050,143 @@ select:focus,
   min-width: 0 !important;
   /* Crucial for flex-shrink and forced wrap */
   height: auto !important;
+}
+
+/* --- Context Menu --- */
+.todo-context-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9998;
+  background: transparent;
+}
+
+.todo-context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (prefers-color-scheme: dark) {
+  .todo-context-menu {
+    background: rgba(40, 40, 40, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+.todo-context-menu .menu-item {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text-color, #1a1a1a);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+
+.todo-context-menu .menu-item:hover {
+  background: rgba(0, 122, 255, 0.1);
+  color: #007aff;
+}
+
+.todo-context-menu .menu-item.delete:hover {
+  background: rgba(255, 59, 48, 0.1);
+  color: #ff3b30;
+}
+
+.todo-context-menu .menu-item.disabled {
+  color: #999;
+  pointer-events: none;
+  background: transparent;
+}
+
+.todo-context-menu .menu-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.1);
+  margin: 4px 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .todo-context-menu .menu-divider {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .todo-context-menu .menu-item.disabled {
+    color: #555;
+  }
+}
+
+/* --- Sub-tasks Styles --- */
+
+.todo-row.sub-item {
+  padding-left: 36px !important;
+  border-bottom: 0.5px solid rgba(200, 200, 200, 0.3) !important;
+}
+
+.todo-row.sub-item.completed .todo-input {
+  color: #8e8e93 !important;
+  text-decoration: none !important;
+  opacity: 1 !important;
+  /* Force visible */
+}
+
+@media (prefers-color-scheme: dark) {
+  .todo-row.sub-item {
+    border-bottom: 0.5px solid rgba(100, 100, 100, 0.3) !important;
+  }
+}
+
+.todo-row.sub-item .todo-checkbox {
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+}
+
+.todo-row.sub-item .todo-input,
+.todo-row.sub-item .todo-input-mirror {
+  font-size: 15px !important;
+}
+
+/* --- Progress Indicator --- */
+.todo-progress-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  font-size: 12px;
+  color: #007aff;
+  vertical-align: middle;
+}
+
+.todo-progress-bar {
+  width: 60px;
+  height: 4px;
+  background: rgba(0, 122, 255, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.todo-progress-bar-fill {
+  height: 100%;
+  background: #007aff;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* --- Deadline Warning --- */
+.deadline-warning {
+  color: #ff3b30;
+  font-size: 12px;
+  margin-left: 8px;
+  font-weight: 500;
 }

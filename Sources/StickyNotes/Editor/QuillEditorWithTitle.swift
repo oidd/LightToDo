@@ -61,6 +61,17 @@ class ClickableWebView: WKWebView {
         if !newItems.isEmpty {
             newItems.append(NSMenuItem.separator())
         }
+        
+        // 5. 添加子事项操作
+        let makeSubItem = NSMenuItem(title: "设为上一条的子事项", action: #selector(makeSubItem(_:)), keyEquivalent: "")
+        makeSubItem.target = self
+        
+        let removeSubItem = NSMenuItem(title: "移出子事项", action: #selector(removeSubItem(_:)), keyEquivalent: "")
+        removeSubItem.target = self
+        
+        newItems.append(makeSubItem)
+        newItems.append(removeSubItem)
+        newItems.append(NSMenuItem.separator())
         newItems.append(deleteItem)
         
         // 4. 重建菜单
@@ -73,8 +84,16 @@ class ClickableWebView: WKWebView {
     }
     
     @objc func deleteFocusedTodo(_ sender: Any) {
-        // 调用 JavaScript 删除当前聚焦的待办事项
-        self.evaluateJavaScript("window.deleteFocusedTodo && window.deleteFocusedTodo()") { _, _ in }
+        // 调用 JavaScript 删除所有选中的待办事项
+        self.evaluateJavaScript("window.deleteSelected && window.deleteSelected()") { _, _ in }
+    }
+    
+    @objc func makeSubItem(_ sender: Any) {
+        self.evaluateJavaScript("window.makeSubItem && window.makeSubItem()") { _, _ in }
+    }
+    
+    @objc func removeSubItem(_ sender: Any) {
+        self.evaluateJavaScript("window.removeSubItem && window.removeSubItem()") { _, _ in }
     }
 
     

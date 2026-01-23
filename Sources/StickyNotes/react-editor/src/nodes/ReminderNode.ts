@@ -24,6 +24,7 @@ export interface ReminderData {
   hasReminder: boolean;
   hasDate: boolean;
   hasTime: boolean;
+  parentKey?: string; // Parent todo key - if set, this is a sub-item
 }
 
 export type SerializedReminderNode = Spread<

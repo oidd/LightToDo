@@ -6,12 +6,17 @@ import { $createReminderNode, $isReminderNode, ReminderNode, ReminderData } from
 import TodoDetailsPanel from './TodoDetailsPanel';
 import DropDown, { DropDownItem } from './DropDown';
 import { useDateDetection, DateSuggestionPopup, DateDetectionResult } from './DateDetector';
+// TodoContextMenu removed - using native menu
 
-interface TodoItem {
+export interface TodoItem {
     key: string;
     text: string;
     checked: boolean;
     reminder?: ReminderData;
+    parentKey?: string;
+    children?: TodoItem[];
+    isSubItem?: boolean;
+    deadlineInvalid?: boolean;
 }
 
 export default function TodoView() {
@@ -113,7 +118,8 @@ export default function TodoView() {
         return () => window.removeEventListener('click', handleClick);
     }, []);
 
-    // Focus inputs on right-click (context menu) and handle multi-selection context menu
+    // Focus inputs on right-click (context menu) - always allow native menu
+    // Update selection so Swift actions work on correct items.
     useEffect(() => {
         const handleContextMenu = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
@@ -121,22 +127,15 @@ export default function TodoView() {
             if (todoRow) {
                 const rowKey = todoRow.getAttribute('data-todo-key');
                 if (rowKey) {
+                    // If multi-selecting and clicked inside selection, keep selection
                     if (selectedKeys.size > 1 && selectedKeys.has(rowKey)) {
-                        e.preventDefault();
-                        setContextMenu({
-                            x: e.clientX,
-                            y: e.clientY,
-                            keys: Array.from(selectedKeys)
-                        });
-                        return;
+                        // Keep selection as-is, native menu will appear
+                        // Swift actions will use selectedKeys
+                    } else {
+                        // Single click or clicking outside selection: Select this item
+                        setSelectedKeys(new Set([rowKey]));
                     }
-
-                    const textarea = todoRow.querySelector('textarea.todo-input') as HTMLElement;
-                    if (textarea) {
-                        if (document.activeElement !== textarea) {
-                            textarea.focus();
-                        }
-                    }
+                    // Do NOT prevent default - let native menu appear always.
                 }
             }
         };
@@ -185,12 +184,47 @@ export default function TodoView() {
             const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
             const endOfToday = startOfToday + 24 * 60 * 60 * 1000;
 
+            // 1. First pass: Identify sub-items and populate extra fields
+            allItems.forEach(item => {
+                if (item.reminder?.parentKey) {
+                    item.parentKey = item.reminder.parentKey;
+                    item.isSubItem = true;
+                }
+            });
+
+            // 1.1 Attach children to parents for counting and logical grouping
+            // We need a map to quickly find parents
+            const itemMap = new Map<string, TodoItem>();
+            allItems.forEach(item => itemMap.set(item.key, item));
+
+            allItems.forEach(item => {
+                if (item.isSubItem && item.parentKey) {
+                    const parent = itemMap.get(item.parentKey);
+                    if (parent) {
+                        if (!parent.children) parent.children = [];
+                        parent.children.push(item);
+
+                        // Check deadline validity
+                        const subTime = item.reminder?.time || 0;
+                        const parentTime = parent.reminder?.time || 0;
+                        if (subTime > 0 && parentTime > 0 && subTime > parentTime) {
+                            item.deadlineInvalid = true;
+                        }
+                    } else {
+                        // Orphaned sub-item, maybe treat as normal item or keep as is?
+                        // For now we treat it as normal if parent not found in current context,
+                        // but strictly speaking the data says it has a parent.
+                        // Let's keep isSubItem=true but it won't be attached to a parent in the view.
+                    }
+                }
+            });
+
             const counts = {
-                all: allItems.filter(t => !t.checked).length,
-                today: allItems.filter(t => !t.checked && t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday).length,
-                recurring: allItems.filter(t => t.reminder && t.reminder.repeatType !== 'none').length,
-                important: allItems.filter(t => !t.checked && t.reminder && t.reminder.priority !== 'none').length,
-                completed: allItems.filter(t => t.checked).length
+                all: allItems.filter(t => !t.checked && !t.isSubItem).length, // Only count main items
+                today: allItems.filter(t => !t.checked && !t.isSubItem && t.reminder && t.reminder.time >= startOfToday && t.reminder.time < endOfToday).length,
+                recurring: allItems.filter(t => !t.isSubItem && t.reminder && t.reminder.repeatType !== 'none').length,
+                important: allItems.filter(t => !t.checked && !t.isSubItem && t.reminder && t.reminder.priority !== 'none').length,
+                completed: allItems.filter(t => t.checked && !t.isSubItem).length
             };
 
             if (window.webkit?.messageHandlers?.editor) {
@@ -203,7 +237,18 @@ export default function TodoView() {
                 window.webkit.messageHandlers.editor.postMessage({ type: 'reminders', data: reminders });
             }
 
+            // 2. Filter logic (Main items only first)
+            // Sub-items should generally be hidden unless their parent is visible or they match the filter specifically.
+            // Requirement 3: "This feature only works in 'All Todos' page".
+            // Implementation: In 'All', show parents and expand children.
+            // In other views, if a child matches, show it? Or show parent?
+            // "Other pages reference 'All' content matching conditions".
+            // Typically sub-tasks show under parent.
+            // Simplified approach: Filter works on ALL items, but then we regroup.
+
             const strictMatches = allItems.filter(t => {
+                // If sub-task feature only active in 'All', maybe simpler logic?
+                // But data structure exists.
                 if (t.checked) {
                     return filterMode === 'completed';
                 }
@@ -239,6 +284,37 @@ export default function TodoView() {
                 finalFiltered = finalFiltered.filter(t => t.text.toLowerCase().includes(lowerQuery));
             }
 
+            // 3. Separation: Main items vs Sub items
+            // We want to sort Main Items, and then inject Sub Items under them.
+            // Sub-items that appear in finalFiltered but whose parents are NOT in finalFiltered
+            // should probably be shown as independent items or contextually.
+            // But per Ref 1: "Sub-task only works in All Todos page".
+            // Let's assume for now we primarily sort everything, then sticky sub-items to parents.
+
+            // Only sort items that are NOT sub-items (roots)
+            // But wait, if we are in 'Today', we might see a sub-item whose parent is NOT today.
+            // For logic simplicity and "Sub-tasks follow parent":
+            // We sort the ROOT items. Children are attached to roots.
+
+            const rootItems = finalFiltered.filter(t => !t.isSubItem);
+            // If a sub-item matches filter but parent doesn't, do we show it?
+            // "Other pages are references".
+            // If I have a sub-task due Today, it should show in Today.
+            // If parent is not due Today, parent might not be in 'rootItems'.
+            // In 'All', we rely on parent structure.
+
+            // Re-strategy:
+            // 1. Identify all items to show (finalFiltered).
+            // 2. Identify their parents. If parent is missing from finalFiltered, we might need to fetch it or treat sub-item as root for this view.
+            // Given "Feature only works in All Todos", maybe in 'Today' they just look like normal items?
+            // User Ref 2: "This feature only works in 'All Todos' page".
+            // So in 'Today', sub-items behave like normal items (flat).
+            // In 'All', they nest.
+
+            const isAllMode = filterMode === 'all';
+
+            const itemsToSort = isAllMode ? rootItems : finalFiltered;
+
             const priorityMap: Record<string, number> = {
                 'high': 3, 'medium': 2, 'low': 1, 'none': 0
             };
@@ -248,59 +324,109 @@ export default function TodoView() {
 
             const priorityItems: TodoItem[] = [];
             const dateTimeItems: TodoItem[] = [];
-            const pinnedPositions: number[] = [];
+            const pinnedPositions: number[] = []; // For items without date/priority, preserving index
 
-            finalFiltered.forEach((t, index) => {
+            // We need to preserve relative order of non-sorted items from the original list order
+            // which comes from document order (walkTree).
+            itemsToSort.forEach((t) => {
                 if (hasPriority(t)) {
                     priorityItems.push(t);
                 } else if (hasDateTime(t)) {
                     dateTimeItems.push(t);
                 } else {
-                    pinnedPositions.push(index);
+                    // Keep them in separate bucket or structure?
+                    // The original logic tried to 'pin' them by index, but index is relative to finalFiltered.
                 }
             });
 
+            // Simplified Sort Logic for Roots
+            // 1. Priority Items sorted by Priority -> Deadline
             priorityItems.sort((a, b) => {
                 const pA = priorityMap[a.reminder!.priority];
                 const pB = priorityMap[b.reminder!.priority];
                 if (pA !== pB) return pB - pA;
                 if (sortMode === 'byDeadline') {
-                    const hasDeadlineA = a.reminder && a.reminder.time > 0;
-                    const hasDeadlineB = b.reminder && b.reminder.time > 0;
-                    if (hasDeadlineA && hasDeadlineB) {
-                        return a.reminder!.time - b.reminder!.time;
-                    }
+                    const timeA = a.reminder?.time || 0;
+                    const timeB = b.reminder?.time || 0;
+                    if (timeA > 0 && timeB > 0) return timeA - timeB;
                 }
                 return 0;
             });
 
+            // 2. Date Time Items sorted by Deadline
             dateTimeItems.sort((a, b) => {
                 if (sortMode === 'byDeadline') {
-                    const hasDeadlineA = a.reminder && a.reminder.time > 0;
-                    const hasDeadlineB = b.reminder && b.reminder.time > 0;
-                    if (hasDeadlineA && !hasDeadlineB) return -1;
-                    if (!hasDeadlineA && hasDeadlineB) return 1;
-                    if (hasDeadlineA && hasDeadlineB) {
-                        return a.reminder!.time - b.reminder!.time;
-                    }
+                    const timeA = a.reminder?.time || 0;
+                    const timeB = b.reminder?.time || 0;
+                    if (timeA > 0 && !timeB) return -1;
+                    if (!timeA && timeB) return 1;
+                    if (timeA > 0 && timeB > 0) return timeA - timeB;
                 }
                 return 0;
             });
 
-            const sortedItems = [...priorityItems, ...dateTimeItems];
-            const result: TodoItem[] = new Array(finalFiltered.length);
-            const pinnedSet = new Set(pinnedPositions);
-            let sortedIndex = 0;
+            // 3. "Pinned" / Other items:
+            // The original logic tried to merge them back into original slots.
+            // Let's grab them from itemsToSort excluding the ones we just took.
+            const sortedSet = new Set([...priorityItems, ...dateTimeItems].map(t => t.key));
+            const others = itemsToSort.filter(t => !sortedSet.has(t.key));
 
-            for (let i = 0; i < finalFiltered.length; i++) {
-                if (pinnedSet.has(i)) {
-                    result[i] = finalFiltered[i];
+            // Merge: Priority -> DateTime -> Others (or Others in their original places?)
+            // Original logic: Pinned items stay at their index. Sorted items fill the gaps.
+            const totalCount = itemsToSort.length;
+            const result: TodoItem[] = new Array(totalCount);
+            const othersSet = new Set(others.map(t => t.key));
+
+            // Reconstruct 'pinned' indices based on original document order
+            // If an item in itemsToSort is in 'others', it goes to its relative position?
+            // Actually, simplified: Priority Top, then Timed, then Others?
+            // "Pinned" logic usually means "Manual Sort" for things without criteria.
+            // Current code implies: if it has priority/date, it bubbles to top sections. If not, it stays put?
+            // Let's replicate original:
+            // Construct the sorted pool to fill gaps
+            const sortedPool = [...priorityItems, ...dateTimeItems];
+            let poolIndex = 0;
+
+            for (let i = 0; i < itemsToSort.length; i++) {
+                const item = itemsToSort[i];
+                if (othersSet.has(item.key)) {
+                    result[i] = item;
                 } else {
-                    result[i] = sortedItems[sortedIndex++];
+                    result[i] = sortedPool[poolIndex++];
                 }
             }
 
-            setTodos(result);
+            // At this point 'result' contains sorted Root items (if All mode) or All items (if filtered).
+            // Now, if 'All' mode, we inject children.
+
+            const finalFlatList: TodoItem[] = [];
+
+            if (isAllMode) {
+                result.forEach(root => {
+                    if (root) {
+                        finalFlatList.push(root);
+                        if (root.children && root.children.length > 0) {
+                            // Sort sub-items by deadline
+                            const subs = [...root.children];
+                            subs.sort((a, b) => {
+                                const tA = a.reminder?.time || 0;
+                                const tB = b.reminder?.time || 0;
+                                // Zero time (no deadline) usually goes last? Or first?
+                                // "按照其截止时间重新排序" -> usually ascending.
+                                if (tA > 0 && tB > 0) return tA - tB;
+                                if (tA > 0) return -1; // Has time comes before no time?
+                                if (tB > 0) return 1;
+                                return 0;
+                            });
+                            finalFlatList.push(...subs);
+                        }
+                    }
+                });
+            } else {
+                result.forEach(t => t && finalFlatList.push(t));
+            }
+
+            setTodos(finalFlatList);
         });
     }, [editor, filterMode, searchQuery, sortMode]);
 
@@ -393,6 +519,48 @@ export default function TodoView() {
                 }
             });
         };
+    }, [todos, editor]);
+
+    // Expose sub-item actions for Swift context menu (MOVED DOWN)
+
+    // Auto-flatten deep nesting (3+ levels) to ensure max 2 levels (Root -> Child)
+    useEffect(() => {
+        const itemsToFlatten: { key: string, newParentKey?: string }[] = [];
+        const itemMap = new Map(todos.map(t => [t.key, t]));
+
+        todos.forEach(t => {
+            if (t.isSubItem && t.parentKey) {
+                const parent = itemMap.get(t.parentKey);
+                // If parent is ALSO a sub-item, we have > 2 levels.
+                if (parent && parent.isSubItem) {
+                    // Flatten: Make 't' a sibling of 'parent' (adopt parent's parent)
+                    itemsToFlatten.push({ key: t.key, newParentKey: parent.parentKey });
+                }
+            }
+        });
+
+        if (itemsToFlatten.length > 0) {
+            editor.update(() => {
+                itemsToFlatten.forEach(({ key, newParentKey }) => {
+                    const node = $getNodeByKey(key);
+                    if ($isListItemNode(node)) {
+                        const children = node.getChildren();
+                        const reminderNode = children.find(c => $isReminderNode(c)) as ReminderNode | undefined;
+                        if (reminderNode) {
+                            const data = reminderNode.getData();
+                            if (newParentKey) {
+                                reminderNode.setData({ ...data, parentKey: newParentKey });
+                            } else {
+                                // Become root
+                                const newData = { ...data };
+                                delete newData.parentKey;
+                                reminderNode.setData(newData);
+                            }
+                        }
+                    }
+                });
+            });
+        }
     }, [todos, editor]);
 
     useEffect(() => {
@@ -641,14 +809,115 @@ export default function TodoView() {
         return undefined;
     };
 
+    const handleMakeSubItem = useCallback(() => {
+        const keysToConvert = Array.from(selectedKeys);
+        if (keysToConvert.length === 0) return;
+
+        // Find the "anchor" item - the first one in the selection based on current visual order
+        // `todos` is sort of the visual order.
+        const indices = keysToConvert.map(k => todos.findIndex(t => t.key === k)).filter(i => i !== -1);
+        if (indices.length === 0) return;
+
+        const minIndex = Math.min(...indices);
+        const parentTodo = todos[minIndex - 1]; // The item immediately above the first selected item
+
+        if (!parentTodo || parentTodo.isSubItem) return; // Cannot indent the first item, or indent under a sub-item (max 1 level)
+
+        // Prevent 3-level nesting: Check if any selected item ALREADY has children.
+        // If an item has children, it cannot become a sub-item.
+        const keysWithChildren = new Set(todos.filter(t => t.parentKey).map(t => t.parentKey));
+        const hasChildren = keysToConvert.some(key => keysWithChildren.has(key));
+        if (hasChildren) {
+            // Maybe notify user? For now just return.
+            return;
+        }
+
+        editor.update(() => {
+            keysToConvert.forEach(key => {
+                const node = $getNodeByKey(key);
+                if ($isListItemNode(node)) {
+                    const children = node.getChildren();
+                    const reminderNode = children.find(c => $isReminderNode(c)) as ReminderNode | undefined;
+
+                    if (reminderNode) {
+                        const data = reminderNode.getData();
+                        reminderNode.setData({ ...data, parentKey: parentTodo.key });
+                    } else {
+                        // Should rare, but create one if missing
+                        node.append($createReminderNode({
+                            time: 0,
+                            repeatType: 'none',
+                            parentKey: parentTodo.key,
+                            originalTime: 0,
+                            priority: 'none',
+                            hasReminder: false,
+                            hasDate: false,
+                            hasTime: false
+                        }));
+                    }
+                }
+            });
+        });
+        setSelectedKeys(new Set()); // Clear selection after action? Or keep it? Usually clear or keep. Let's clear to avoid confusion.
+    }, [selectedKeys, todos, editor]);
+
+    const handleRemoveSubItem = useCallback(() => {
+        const keysToRemove = Array.from(selectedKeys);
+        editor.update(() => {
+            keysToRemove.forEach(key => {
+                const node = $getNodeByKey(key);
+                if ($isListItemNode(node)) {
+                    const children = node.getChildren();
+                    const reminderNode = children.find(c => $isReminderNode(c)) as ReminderNode | undefined;
+                    if (reminderNode) {
+                        const data = reminderNode.getData();
+                        const newData = { ...data };
+                        delete newData.parentKey;
+                        reminderNode.setData(newData);
+                    }
+                }
+            });
+        });
+        setSelectedKeys(new Set());
+    }, [selectedKeys, editor]);
+
+    // Expose sub-item actions for Swift context menu (Moved here)
+    useEffect(() => {
+        (window as any).makeSubItem = handleMakeSubItem;
+        (window as any).removeSubItem = handleRemoveSubItem;
+        (window as any).deleteSelected = handleDeleteSelected;
+    }, [handleMakeSubItem, handleRemoveSubItem, handleDeleteSelected]);
+
     const handleEnter = (key: string) => {
+        const currentTodo = todos.find(t => t.key === key);
+        const parentKey = currentTodo?.parentKey;
+
         editor.update(() => {
             const node = $getNodeByKey(key);
             if ($isListItemNode(node)) {
                 const newNode = $createListItemNode();
                 newNode.setChecked(false);
+
+                // Inherit parentKey if valid
                 const defaultReminder = getDefaultReminder(filterMode);
-                if (defaultReminder) newNode.append($createReminderNode(defaultReminder));
+                const reminderData = defaultReminder || {
+                    time: 0,
+                    repeatType: 'none',
+                    originalTime: 0,
+                    priority: 'none',
+                    hasReminder: false,
+                    hasDate: false,
+                    hasTime: false
+                };
+
+                if (parentKey) {
+                    reminderData.parentKey = parentKey;
+                    // Sub-tasks forced to repeatType: 'none' per requirements?
+                    // User said: "所有的重复性都是“一次性”且不可修改" -> So enforce none
+                    reminderData.repeatType = 'none';
+                }
+
+                newNode.append($createReminderNode(reminderData));
                 node.insertAfter(newNode);
                 pendingFocusKey.current = newNode.getKey();
             }
@@ -665,6 +934,7 @@ export default function TodoView() {
             const listNode = $createListNode('check');
             const listItem = $createListItemNode();
             const defaultReminder = getDefaultReminder(filterMode);
+            // First item cannot be a sub-item, so no parentKey needed logic here
             if (defaultReminder) listItem.append($createReminderNode(defaultReminder));
             listNode.append(listItem);
             root.append(listNode);
@@ -684,8 +954,14 @@ export default function TodoView() {
             const node = $getNodeByKey(dialogTargetKey);
             if ($isListItemNode(node)) {
                 const children = node.getChildren();
-                children.forEach(c => { if ($isReminderNode(c)) c.remove(); });
-                node.append($createReminderNode(data));
+                let existingParentKey: string | undefined;
+                children.forEach(c => {
+                    if ($isReminderNode(c)) {
+                        existingParentKey = c.getData().parentKey;
+                        c.remove();
+                    }
+                });
+                node.append($createReminderNode({ ...data, parentKey: existingParentKey }));
             }
         });
     };
@@ -751,7 +1027,7 @@ export default function TodoView() {
     const currentHeader = headerConfig[filterMode] || headerConfig['all'];
 
     return (
-        <div className={`todo-view ${filterMode}-mode`}>
+        <div className={`todo-view ${sortMode === 'byDeadline' ? 'sorted-by-deadline' : 'sorted-manual'} ${filterMode === 'completed' ? 'completed-mode' : ''}`}>
             <div className="todo-header" style={{ color: currentHeader.color }}>
                 {currentHeader.text}
                 <div className="todo-subheader">
@@ -774,6 +1050,7 @@ export default function TodoView() {
                     )}
                 </div>
             </div>
+
             <div className="todo-list">
                 {todos.map(todo => (
                     <TodoItemRow
@@ -791,7 +1068,7 @@ export default function TodoView() {
                         isSelected={selectedKeys.has(todo.key)}
                         onRowClick={(e) => handleRowClick(todo.key, e)}
                         highlightRange={
-                            (detectionResult && detectionResult.id === todo.key && shouldShowSuggestion(todo, detectionResult.result))
+                            (!todo.checked && detectionResult && detectionResult.id === todo.key && shouldShowSuggestion(todo, detectionResult.result))
                                 ? detectionResult.result.range
                                 : undefined
                         }
@@ -856,70 +1133,25 @@ export default function TodoView() {
                 />
             )}
 
-            {contextMenu && (
-                <div
-                    className="todo-custom-context-menu"
-                    style={{
-                        position: 'fixed',
-                        top: contextMenu.y,
-                        left: contextMenu.x,
-                        zIndex: 1000,
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        backdropFilter: 'blur(10px)',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                        borderRadius: '10px',
-                        padding: '4px',
-                        minWidth: '160px',
-                        border: '1px solid rgba(0,0,0,0.1)'
-                    }}
-                >
-                    <div
-                        className="menu-item"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteSelected();
-                        }}
-                        style={{
-                            padding: '10px 14px',
-                            cursor: 'pointer',
-                            color: '#ff3b30',
-                            fontSize: '14px',
-                            fontWeight: '500',
-                            borderRadius: '6px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 59, 48, 0.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 6h18"></path>
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                        </svg>
-                        删除所选项目 ({contextMenu.keys.length})
-                    </div>
-                </div>
-            )}
+
         </div>
     );
-}
+};
 
 interface RowProps {
     todo: TodoItem;
     registerRef: (key: string, el: HTMLTextAreaElement | null) => void;
     onToggle: (checked: boolean) => void;
     onTextChange: (key: string, text: string) => void;
-    onEnter: (key: string) => void;
-    onDelete: (key: string) => void;
     onPriorityChange: (key: string, priority: 'none' | 'low' | 'medium' | 'high') => void;
+    onEnter: (key: string, e: React.KeyboardEvent) => void;
+    onDelete: (key: string) => void;
     onOpenReminder: () => void;
     isCompletedMode: boolean;
     isRinging: boolean;
-    highlightRange?: [number, number];
-    isSelected: boolean;
-    onRowClick: (e: React.MouseEvent) => void;
+    highlightRange?: [number, number] | undefined;
+    isSelected?: boolean;
+    onRowClick?: (e: React.MouseEvent) => void;
 }
 
 function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode, isRinging, highlightRange, isSelected, onRowClick }: RowProps) {
@@ -955,7 +1187,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
         const checked = e.target.checked;
         if (checked) {
             const isRecurring = todo.reminder && todo.reminder.repeatType !== 'none';
-            if (isRecurring) {
+            if (isRecurring || todo.isSubItem) {
                 onToggle(true);
             } else {
                 setIsClosing(true);
@@ -974,7 +1206,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
             e.preventDefault();
             if (todo.checked || isCompletedMode) return;
             if (localText === '') onDelete(todo.key);
-            else onEnter(todo.key);
+            else onEnter(todo.key, e);
         } else if (e.key === 'Backspace') {
             const prefix = getPriorityPrefix() || '';
             if (prefix && textareaRef.current &&
@@ -1003,35 +1235,37 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
 
         const d = new Date(r.time);
         const now = new Date();
-        const isOverdue = r.hasDate && now.getTime() > r.time;
+        // const isOverdue = r.hasDate && now.getTime() > r.time; // Calculated outside
 
         const m = d.getMonth() + 1;
         const day = d.getDate();
         const h = String(d.getHours()).padStart(2, '0');
         const min = String(d.getMinutes()).padStart(2, '0');
 
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+        const tomorrowDate = new Date(todayDate);
+        tomorrowDate.setDate(todayDate.getDate() + 1);
+
+        const targetDate = new Date(r.time);
+        targetDate.setHours(0, 0, 0, 0);
+
+        let dateLabel = `${m}月${day}日`;
+        if (targetDate.getTime() === todayDate.getTime()) {
+            dateLabel = '今天';
+        } else if (targetDate.getTime() === tomorrowDate.getTime()) {
+            dateLabel = '明天';
+        }
+
         let timeStr = '';
         if (r.hasDate) {
-            const todayDate = new Date();
-            todayDate.setHours(0, 0, 0, 0);
-            const tomorrowDate = new Date(todayDate);
-            tomorrowDate.setDate(todayDate.getDate() + 1);
-
-            const targetDate = new Date(r.time);
-            targetDate.setHours(0, 0, 0, 0);
-
-            let dateLabel = `${m}月${day}日`;
-            if (targetDate.getTime() === todayDate.getTime()) {
-                dateLabel = '今天';
-            } else if (targetDate.getTime() === tomorrowDate.getTime()) {
-                dateLabel = '明天';
-            }
-
             if (r.hasTime) timeStr = `${dateLabel} ${h}:${min}`;
             else timeStr = dateLabel;
         } else if (r.hasTime) {
             timeStr = `${h}:${min}`;
         }
+
+        const isOverdue = r.hasDate && now.getTime() > r.time && !todo.checked;
 
         let cycleStr = '';
         if (isOverdue) cycleStr = '已过期';
@@ -1060,6 +1294,23 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
         }
     };
 
+    // New: Calculate Progress
+    const progress = (() => {
+        if (!todo.children || todo.children.length === 0) return null;
+        const total = todo.children.length;
+        const completed = todo.children.filter(c => c.checked).length;
+        return { total, completed };
+    })();
+
+    // New: Invalid Deadline Warning Logic
+    const deadlineWarning = (() => {
+        // Placeholder for future logic if needed
+        return todo.deadlineInvalid ? "截止时间不合理" : null;
+    })();
+
+    const metaText = getMetaInfo();
+    const isOverdue = todo.reminder && new Date().getTime() > todo.reminder.time;
+
     const renderMirrorContent = () => {
         const prefix = getPriorityPrefix() || '';
         const fullText = (prefix + (localText || ""));
@@ -1087,12 +1338,9 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
         );
     };
 
-    const metaText = getMetaInfo();
-    const isOverdue = todo.reminder && new Date().getTime() > todo.reminder.time;
-
     return (
         <div
-            className={`todo-row ${todo.checked ? 'completed' : ''} ${todo.reminder ? 'has-reminder' : ''} ${isSelected ? 'selected' : ''}`}
+            className={`todo-row ${todo.checked ? 'completed' : ''} ${todo.reminder ? 'has-reminder' : ''} ${isSelected ? 'selected' : ''} ${todo.isSubItem ? 'sub-item' : ''}`}
             data-todo-key={todo.key}
             onClick={onRowClick}
             style={{
@@ -1180,9 +1428,25 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                     />
                 </div>
 
-                {metaText && (
+                {(metaText || progress || deadlineWarning) && (
                     <div className={`todo-meta-info ${isOverdue ? 'overdue' : ''} ${showShimmer ? 'shimmer' : ''}`}>
                         {metaText}
+
+                        {deadlineWarning && (
+                            <span className="deadline-warning">{deadlineWarning}</span>
+                        )}
+
+                        {progress && (
+                            <div className="todo-progress-indicator">
+                                <span>进度 {progress.completed}/{progress.total}</span>
+                                <div className="todo-progress-bar">
+                                    <div
+                                        className="todo-progress-bar-fill"
+                                        style={{ width: `${(progress.completed / progress.total) * 100}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -1205,8 +1469,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                                 )}
                             </div>
                         )}
-
-                        <svg className="info-icon-display" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg className="info-icon-display" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="12" cy="12" r="10"></circle>
                             <line x1="12" y1="16" x2="12" y2="12"></line>
                             <line x1="12" y1="8" x2="12.01" y2="8"></line>
@@ -1214,6 +1477,6 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }
