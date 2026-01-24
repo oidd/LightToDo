@@ -167,91 +167,74 @@ struct SidebarView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
-                // Top Row: All (Large Wide Button)
+            VStack(alignment: .leading, spacing: 4) { // Tighter spacing for list
                 StatButton(
                     mode: .all,
-                    title: "全部待办事项",
+                    title: "待办事项",
                     iconName: "全部",
                     count: notesManager.todoCounts["all"] ?? 0,
-                    color: Color(hex: "#087aff"), // Original Blue
-                    isWide: true,
+                    themeColor: Color(hex: "#087aff"),
                     isSelected: notesManager.currentFilter == .all
                 ) {
                     notesManager.currentFilter = .all
                 }
                 
-                // Middle Row: Today & Important
-                HStack(spacing: 12) {
-                    StatButton(
-                        mode: .today,
-                        title: "今天",
-                        iconName: "今天",
-                        count: notesManager.todoCounts["today"] ?? 0,
-                        color: Color(hex: "#08bcff"), // New Blue
-                        isWide: false,
-                        isSelected: notesManager.currentFilter == .today
-                    ) {
-                        notesManager.currentFilter = .today
-                    }
-                    
-                    StatButton(
-                        mode: .important,
-                        title: "重要",
-                        iconName: "重要",
-                        count: notesManager.todoCounts["important"] ?? 0,
-                        color: Color(hex: "#ff8d30"), // Orange
-                        isWide: false,
-                        isSelected: notesManager.currentFilter == .important
-                    ) {
-                        notesManager.currentFilter = .important
-                    }
+                StatButton(
+                    mode: .today,
+                    title: "今天",
+                    iconName: "今天",
+                    count: notesManager.todoCounts["today"] ?? 0,
+                    themeColor: Color(hex: "#08bcff"),
+                    isSelected: notesManager.currentFilter == .today
+                ) {
+                    notesManager.currentFilter = .today
                 }
                 
-                // Row 3: Recurring & Planned
-                HStack(spacing: 12) {
-                    StatButton(
-                        mode: .recurring,
-                        title: "周期",
-                        iconName: "周期",
-                        count: notesManager.todoCounts["recurring"] ?? 0,
-                        color: Color(hex: "#ff3b30"), // Red
-                        isWide: false,
-                        isSelected: notesManager.currentFilter == .recurring
-                    ) {
-                        notesManager.currentFilter = .recurring
-                    }
-                    
-                    StatButton(
-                        mode: .planned,
-                        title: "计划",
-                        iconName: "计划",
-                        count: notesManager.todoCounts["planned"] ?? 0,
-                        color: Color(hex: "#f7cb00"), // Updated Yellow
-                        isWide: false,
-                        isSelected: notesManager.currentFilter == .planned
-                    ) {
-                        notesManager.currentFilter = .planned
-                    }
+                StatButton(
+                    mode: .important,
+                    title: "重要",
+                    iconName: "重要",
+                    count: notesManager.todoCounts["important"] ?? 0,
+                    themeColor: Color(hex: "#ff8d30"),
+                    isSelected: notesManager.currentFilter == .important
+                ) {
+                    notesManager.currentFilter = .important
                 }
                 
-                // Row 4: Completed (Single)
-                HStack(spacing: 12) {
-                    StatButton(
-                        mode: .completed,
-                        title: "完成",
-                        iconName: "完成",
-                        count: notesManager.todoCounts["completed"] ?? 0,
-                        color: Color(hex: "#8e8e93"), // Gray
-                        isWide: false,
-                        isSelected: notesManager.currentFilter == .completed
-                    ) {
-                        notesManager.currentFilter = .completed
-                    }
-                    Spacer()
+                StatButton(
+                    mode: .recurring,
+                    title: "周期",
+                    iconName: "周期",
+                    count: notesManager.todoCounts["recurring"] ?? 0,
+                    themeColor: Color(hex: "#ff3b30"),
+                    isSelected: notesManager.currentFilter == .recurring
+                ) {
+                    notesManager.currentFilter = .recurring
+                }
+                
+                StatButton(
+                    mode: .planned,
+                    title: "计划",
+                    iconName: "计划",
+                    count: notesManager.todoCounts["planned"] ?? 0,
+                    themeColor: Color(hex: "#f7cb00"),
+                    isSelected: notesManager.currentFilter == .planned
+                ) {
+                    notesManager.currentFilter = .planned
+                }
+                
+                StatButton(
+                    mode: .completed,
+                    title: "完成",
+                    iconName: "完成",
+                    count: notesManager.todoCounts["completed"] ?? 0,
+                    themeColor: Color(hex: "#8e8e93"),
+                    isSelected: notesManager.currentFilter == .completed
+                ) {
+                    notesManager.currentFilter = .completed
                 }
             }
-            .padding(.horizontal, 15)
+            .padding(.horizontal, 10) // Narrower padding for list style
             .padding(.top, 10)
             
             Spacer()
@@ -267,85 +250,80 @@ struct StatButton: View {
     let title: String
     let iconName: String
     let count: Int
-    let color: Color
-    let isWide: Bool
+    let themeColor: Color
     let isSelected: Bool
     let action: () -> Void
     
+    @State private var isHovered = false
+    
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 0) {
-                // Fixed Height Top Row: Enforce 32px height for all tabs to ensure consistent layout
-                HStack(alignment: .center) {
-                    // Top Left: Icon
+            HStack(spacing: 0) {
+                // 1. Animated Capsule Color Bar (Far Left)
+                Capsule()
+                    .fill(isSelected ? themeColor : Color.gray.opacity(0.3))
+                    .frame(width: 3, height: isSelected ? 18 : (isHovered ? 12 : 0))
+                    .opacity(isSelected || isHovered ? 1 : 0)
+                    .padding(.leading, 8)
+                    .padding(.trailing, 8)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+                    .animation(.easeIn(duration: 0.15), value: isHovered)
+
+                // 2. Icon (Tinted with theme color)
+                Group {
                     if mode == .today {
-                        TodayIconView(iconName: iconName)
+                        TodayIconView(iconName: iconName, themeColor: themeColor)
                     } else if let nsImage = loadSVG(named: iconName) {
                         Image(nsImage: nsImage)
                             .resizable()
                             .renderingMode(.template)
                             .aspectRatio(contentMode: .fit)
                             .frame(
-                                width: mode == .planned ? 30 : (mode == .completed ? 25 : 22),
-                                height: mode == .planned ? 30 : (mode == .completed ? 25 : 22)
+                                width: mode == .planned ? 22 : 18, 
+                                height: mode == .planned ? 22 : 18
                             )
-                            .foregroundColor(.white)
-                            .offset(y: 1.5) // Standardize offset to 1.5 for all icons to move Completed UP
-                    }
-                    
-                    Spacer()
-                    
-                    // Top Right: Count
-                    if mode != .completed {
-                        Text("\(count)")
-                            .font(.system(size: 26, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(themeColor)
                     }
                 }
-                .frame(height: 32)
-                .padding(.top, 6)
-                .padding(.horizontal, 10)
+                .frame(width: 24, alignment: .center)
                 
-                Spacer(minLength: 0)
-                
-                // Bottom Left: Title
+                // 3. Title
                 Text(title)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
-                    .opacity(0.9)
-                    .padding(.bottom, 10)
-                    .padding(.horizontal, 10)
-            }
-            .frame(width: isWide ? 190 : 89, height: 68)
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(color)
-                    
-                    // Subtle Gradient Overlay
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(
-                            LinearGradient(
-                                gradient: Gradient(colors: [Color.white.opacity(0.15), Color.clear]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                    .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
+                    .foregroundColor(.primary)
+                    .opacity(isSelected ? 1.0 : 0.8)
+                    .padding(.leading, 8)
+                
+                Spacer()
+                
+                // 4. Count (Right aligned)
+                if mode != .completed {
+                    Text("\(count)")
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundColor(.secondary)
+                        .padding(.trailing, 10)
                 }
-                .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 36) // Standard list item height
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? themeColor.opacity(0.12) : (isHovered ? Color.primary.opacity(0.05) : Color.clear))
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(isSelected ? 0.3 : 0), lineWidth: 1.5)
-            )
-            .animation(.spring(response: 0.25), value: isSelected)
+            .contentShape(Rectangle()) // Enlarge tap area
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.2)) {
+                isHovered = hovering
+            }
+        }
     }
 }
 
 struct TodayIconView: View {
     let iconName: String
+    let themeColor: Color
     
     var body: some View {
         ZStack {
@@ -354,17 +332,16 @@ struct TodayIconView: View {
                     .resizable()
                     .renderingMode(.template)
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: 22, height: 22) // Smaller for Today to match Recurring
-                    .foregroundColor(.white)
+                    .frame(width: 18, height: 18)
+                    .foregroundColor(themeColor)
             }
             
             // Dynamic Day Number
             Text("\(Calendar.current.component(.day, from: Date()))")
-                .font(.system(size: 9, weight: .bold)) // Slightly smaller font for smaller icon
-                .foregroundColor(.white)
-                .offset(y: 2)
+                .font(.system(size: 8, weight: .bold))
+                .foregroundColor(themeColor)
+                .offset(y: 1.5)
         }
-        .offset(y: 1.5) // Match other icons' vertical alignment
     }
 }
 
