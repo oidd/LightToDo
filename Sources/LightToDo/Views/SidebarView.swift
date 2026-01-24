@@ -273,6 +273,8 @@ struct StatButton: View {
                 Group {
                     if mode == .today {
                         TodayIconView(iconName: iconName, themeColor: themeColor)
+                    } else if mode == .completed {
+                        CompletedIconView(iconName: iconName, themeColor: themeColor, count: count)
                     } else if let nsImage = loadSVG(named: iconName) {
                         Image(nsImage: nsImage)
                             .resizable()
@@ -316,6 +318,45 @@ struct StatButton: View {
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.2)) {
                 isHovered = hovering
+            }
+        }
+    }
+}
+
+struct CompletedIconView: View {
+    let iconName: String
+    let themeColor: Color
+    let count: Int
+    
+    @State private var drawProgress: CGFloat = 1.0
+    
+    var body: some View {
+        ZStack {
+            if let nsImage = loadSVG(named: iconName) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .renderingMode(.template)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 18, height: 18)
+                    .foregroundColor(themeColor)
+                    // The Mask: Revels from left to right
+                    .mask(
+                        HStack(spacing: 0) {
+                            Rectangle()
+                                .frame(width: 18 * drawProgress)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(width: 18)
+                    )
+            }
+        }
+        .onChange(of: count) { [oldValue = count] newValue in
+            // Only trigger if count increased (task completed)
+            if newValue > oldValue {
+                drawProgress = 0
+                withAnimation(.easeOut(duration: 0.6)) {
+                    drawProgress = 1.0
+                }
             }
         }
     }
