@@ -59,6 +59,7 @@ export default function TodoView() {
 
     // Optimistic UI State for recurring tasks
     const [optimisticIds, setOptimisticIds] = useState<Set<string>>(new Set());
+    const [closingKeys, setClosingKeys] = useState<Set<string>>(new Set());
     const pendingTimeouts = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
     // Sticky display logic: once an item is shown in a view, keep showing it even if data changes, until view changes
@@ -578,27 +579,36 @@ export default function TodoView() {
     });
 
     const handleToggle = (key: string, checked: boolean, todo: TodoItem) => {
-        if (!checked) {
-            if (pendingTimeouts.current.has(key)) {
-                clearTimeout(pendingTimeouts.current.get(key));
-                pendingTimeouts.current.delete(key);
-                setOptimisticIds(prev => {
+        const isRecurring = todo.reminder && todo.reminder.repeatType !== 'none';
+
+        // Synchronized closing animation
+        if (!isRecurring && !isCompletedMode) {
+            const keysToClose = new Set<string>([key]);
+            if (todo.children) {
+                todo.children.forEach(c => keysToClose.add(c.key));
+            }
+
+            setClosingKeys(prev => {
+                const next = new Set(prev);
+                keysToClose.forEach(k => next.add(k));
+                return next;
+            });
+
+            setTimeout(() => {
+                setClosingKeys(prev => {
                     const next = new Set(prev);
-                    next.delete(key);
+                    keysToClose.forEach(k => next.delete(k));
                     return next;
                 });
-                return;
-            }
-            editor.update(() => {
-                const node = $getNodeByKey(key);
-                if ($isListItemNode(node)) {
-                    node.setChecked(false);
-                }
-            });
-            return;
+                performToggle(key, checked, todo);
+            }, 300);
+        } else {
+            performToggle(key, checked, todo);
         }
+    };
 
-        if (todo.reminder && todo.reminder.repeatType !== 'none') {
+    const performToggle = (key: string, checked: boolean, todo: TodoItem) => {
+        if (checked && todo.reminder && todo.reminder.repeatType !== 'none') {
             setOptimisticIds(prev => {
                 const next = new Set(prev);
                 next.add(key);
@@ -618,23 +628,56 @@ export default function TodoView() {
             editor.update(() => {
                 const node = $getNodeByKey(key);
                 if ($isListItemNode(node)) {
-                    node.setChecked(true);
+                    node.setChecked(checked);
                     const children = node.getChildren();
                     const existing = children.find(c => $isReminderNode(c)) as ReminderNode | undefined;
-                    if (existing) {
-                        existing.setData({ ...existing.getData(), completedAt: Date.now() });
-                    } else {
-                        node.append($createReminderNode({
-                            time: 0,
-                            repeatType: 'none',
-                            originalTime: 0,
-                            completedAt: Date.now(),
-                            priority: 'none',
-                            hasReminder: false,
-                            hasDate: false,
-                            hasTime: false,
-                            uuid: crypto.randomUUID()
-                        }));
+
+                    if (checked) {
+                        if (existing) {
+                            existing.setData({ ...existing.getData(), completedAt: Date.now() });
+                        } else {
+                            node.append($createReminderNode({
+                                time: 0,
+                                repeatType: 'none',
+                                originalTime: 0,
+                                completedAt: Date.now(),
+                                priority: 'none',
+                                hasReminder: false,
+                                hasDate: false,
+                                hasTime: false,
+                                uuid: crypto.randomUUID()
+                            }));
+                        }
+                    }
+
+                    // Recursive check/uncheck for sub-items
+                    if (todo.children) {
+                        todo.children.forEach(child => {
+                            const childNode = $getNodeByKey(child.key);
+                            if ($isListItemNode(childNode)) {
+                                childNode.setChecked(checked);
+                                if (checked) {
+                                    const cChildren = childNode.getChildren();
+                                    const cExisting = cChildren.find(c => $isReminderNode(c)) as ReminderNode | undefined;
+                                    if (cExisting) {
+                                        cExisting.setData({ ...cExisting.getData(), completedAt: Date.now() });
+                                    } else {
+                                        childNode.append($createReminderNode({
+                                            time: 0,
+                                            repeatType: 'none',
+                                            originalTime: 0,
+                                            completedAt: Date.now(),
+                                            priority: 'none',
+                                            hasReminder: false,
+                                            hasDate: false,
+                                            hasTime: false,
+                                            uuid: crypto.randomUUID(),
+                                            parentUuid: todo.uuid
+                                        }));
+                                    }
+                                }
+                            }
+                        });
                     }
                 }
             });
@@ -1108,6 +1151,7 @@ export default function TodoView() {
                         onDelete={handleDelete}
                         onOpenReminder={() => openReminderSettings(todo.key, todo.reminder)}
                         isSelected={selectedKeys.has(todo.key)}
+                        isClosing={closingKeys.has(todo.key)}
                         onRowClick={(e) => handleRowClick(todo.key, e)}
                         highlightRange={
                             (!todo.checked && detectionResult && detectionResult.id === todo.key && shouldShowSuggestion(todo, detectionResult.result))
@@ -1193,14 +1237,14 @@ interface RowProps {
     isRinging: boolean;
     highlightRange?: [number, number] | undefined;
     isSelected?: boolean;
+    isClosing?: boolean;
     onRowClick?: (e: React.MouseEvent) => void;
 }
 
-function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode, isRinging, highlightRange, isSelected, onRowClick }: RowProps) {
+function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode, isRinging, highlightRange, isSelected, isClosing, onRowClick }: RowProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [localText, setLocalText] = useState(todo.text);
     const isComposing = useRef(false);
-    const [isClosing, setIsClosing] = useState(false);
     const [showShimmer, setShowShimmer] = useState(false);
 
     useEffect(() => {
@@ -1228,16 +1272,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
     const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
         if (checked) {
-            const isRecurring = todo.reminder && todo.reminder.repeatType !== 'none';
-            if (isRecurring || todo.isSubItem) {
-                onToggle(true);
-            } else {
-                setIsClosing(true);
-                setTimeout(() => {
-                    onToggle(true);
-                    setIsClosing(false);
-                }, 300);
-            }
+            onToggle(true);
         } else {
             onToggle(false);
         }
@@ -1402,9 +1437,10 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
             <div className="todo-checkbox-wrapper">
                 <input
                     type="checkbox"
-                    className={`todo-checkbox ${(!localText && !todo.checked) ? 'draft' : ''}`}
+                    className={`todo-checkbox ${(!localText && !todo.checked) ? 'draft' : ''} ${(isCompletedMode && todo.isSubItem) ? 'sub-item-disabled' : ''}`}
                     checked={todo.checked}
                     onChange={handleCheckboxChange}
+                    disabled={isCompletedMode && todo.isSubItem}
                 />
             </div>
 

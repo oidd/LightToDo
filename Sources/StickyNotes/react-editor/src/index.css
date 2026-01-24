@@ -4180,6 +4180,17 @@ select:focus,
   font-size: 15px !important;
 }
 
+.todo-checkbox.sub-item-disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+}
+
+.todo-checkbox.sub-item-disabled:checked {
+  background-color: #c7c7cc !important;
+  border-color: #c7c7cc !important;
+  filter: grayscale(1);
+}
+
 /* --- Progress Indicator --- */
 .todo-progress-indicator {
   display: inline-flex;
