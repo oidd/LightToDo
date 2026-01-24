@@ -1305,15 +1305,13 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
         }
     };
 
-    const getMetaInfo = () => {
-        if (!todo.reminder) return null;
+    const getMetaInfoParts = () => {
+        if (!todo.reminder) return [];
         const r = todo.reminder;
-        if (!r.hasDate && !r.hasTime && r.repeatType === 'none') return null;
+        if (!r.hasDate && !r.hasTime && r.repeatType === 'none') return [];
 
         const d = new Date(r.time);
         const now = new Date();
-        // const isOverdue = r.hasDate && now.getTime() > r.time; // Calculated outside
-
         const m = d.getMonth() + 1;
         const day = d.getDate();
         const h = String(d.getHours()).padStart(2, '0');
@@ -1342,23 +1340,25 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
             timeStr = `${h}:${min}`;
         }
 
-        const isOverdue = r.hasDate && now.getTime() > r.time && !todo.checked && r.repeatType === 'none';
+        const parts: string[] = [];
+        if (timeStr) parts.push(timeStr);
 
-        let cycleStr = '';
-        if (isOverdue) cycleStr = '已过期';
-        else {
+        const isOverdue = r.hasDate && now.getTime() > r.time && !todo.checked && r.repeatType === 'none';
+        if (isOverdue) {
+            parts.push('已过期');
+        } else {
             const map: Record<string, string> = {
                 'none': '', 'daily': '每天', 'weekdays': '工作日',
                 'weekly': '每周', 'monthly': '每月', 'yearly': '每年'
             };
-            cycleStr = map[r.repeatType] || '';
-            if (r.repeatType === 'none' && (r.hasDate || r.hasTime)) cycleStr = '一次性';
+            const cycleStr = map[r.repeatType];
+            if (cycleStr) parts.push(cycleStr);
+            else if (r.repeatType === 'none' && (r.hasDate || r.hasTime)) {
+                parts.push('一次性');
+            }
         }
 
-        if (!cycleStr && !timeStr) return null;
-        if (!cycleStr) return timeStr;
-        if (!timeStr) return cycleStr;
-        return `${timeStr}，${cycleStr}`;
+        return parts;
     };
 
     const getPriorityPrefix = () => {
@@ -1382,10 +1382,10 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
     // New: Invalid Deadline Warning Logic
     const deadlineWarning = (() => {
         // Placeholder for future logic if needed
-        return todo.deadlineInvalid ? "截止时间不合理" : null;
+        return todo.deadlineInvalid ? "截止时间超过父事项" : null;
     })();
 
-    const metaText = getMetaInfo();
+    const metaText = ""; // Removed in favor of getMetaInfoParts()
     const isOverdue = todo.reminder && todo.reminder.hasDate && new Date().getTime() > todo.reminder.time && !todo.checked && todo.reminder.repeatType === 'none';
 
     const renderMirrorContent = () => {
@@ -1506,15 +1506,17 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                     />
                 </div>
 
-                {(metaText || progress || deadlineWarning) && (
-                    <div className={`todo-meta-info ${isOverdue ? 'overdue' : ''} ${showShimmer ? 'shimmer' : ''}`}>
-                        {metaText}
+                {(() => {
+                    const metaParts = getMetaInfoParts().map(text => (
+                        <span className="todo-meta-text">{text}</span>
+                    ));
 
-                        {deadlineWarning && (
-                            <span className="deadline-warning">{deadlineWarning}</span>
-                        )}
+                    if (deadlineWarning) {
+                        metaParts.push(<span className="deadline-warning">{deadlineWarning}</span>);
+                    }
 
-                        {progress && (
+                    if (progress) {
+                        metaParts.push(
                             <div className="todo-progress-indicator">
                                 <span>进度 {progress.completed}/{progress.total}</span>
                                 <div className="todo-progress-bar">
@@ -1524,9 +1526,22 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                                     />
                                 </div>
                             </div>
-                        )}
-                    </div>
-                )}
+                        );
+                    }
+
+                    if (metaParts.length === 0) return null;
+
+                    return (
+                        <div className={`todo-meta-info ${isOverdue ? 'overdue' : ''} ${showShimmer ? 'shimmer' : ''}`}>
+                            {metaParts.map((part, i) => (
+                                <React.Fragment key={i}>
+                                    {i > 0 && <span className="meta-separator">|</span>}
+                                    {part}
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    );
+                })()}
             </div>
 
             <div className="todo-icon-group">

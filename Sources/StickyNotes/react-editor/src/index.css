@@ -3370,17 +3370,49 @@ select:focus,
 /* Conflict removed to ensure centering */
 
 .todo-meta-info {
+  display: flex !important;
+  align-items: center;
+  gap: 0;
   font-size: 11px;
   color: #8e8e93;
-  margin-top: 2px;
+  margin-top: 2px !important;
   line-height: 1.2 !important;
-  margin: 0 !important;
   background-color: transparent !important;
-  /* Visible Purple Debug */
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-.todo-meta-info:empty {
-  display: none !important;
+.meta-separator {
+  color: #c7c7cc;
+  font-size: 10px;
+  flex-shrink: 0;
+  user-select: none;
+  padding: 0 8px;
+  /* Consistent spacing around the bar */
+}
+
+.todo-meta-text {
+  white-space: nowrap;
+  flex-shrink: 0;
+  /* Don't shrink individual segments */
+}
+
+.deadline-warning {
+  color: #ff3b30;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.todo-progress-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #007aff;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .todo-meta-info.overdue {
@@ -3987,16 +4019,7 @@ select:focus,
   display: none;
 }
 
-/* 4. Meta Info Truncation */
-.todo-meta-info {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
-  display: block;
-  /* Ensure block behavior for width */
-  max-width: 100%;
-}
+/* 4. Meta Info Truncation - obsolete, handled above */
 
 
 /* --- Mirror Auto-grow Technique --- */
@@ -4196,10 +4219,10 @@ select:focus,
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: 12px;
-  font-size: 12px;
+  font-size: 11px;
   color: #007aff;
   vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .todo-progress-bar {
@@ -4221,7 +4244,6 @@ select:focus,
 /* --- Deadline Warning --- */
 .deadline-warning {
   color: #ff3b30;
-  font-size: 12px;
-  margin-left: 8px;
+  font-size: 11px;
   font-weight: 500;
 }
