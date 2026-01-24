@@ -2,21 +2,21 @@
 import PackageDescription
 
 let package = Package(
-    name: "StickyNotes",
+    name: "LightToDo",
     platforms: [
         .macOS(.v13)
     ],
     products: [
-        .executable(name: "StickyNotes", targets: ["StickyNotes"])
+        .executable(name: "LightToDo", targets: ["LightToDo"])
     ],
     dependencies: [
     ],
     targets: [
         .executableTarget(
-            name: "StickyNotes",
+            name: "LightToDo",
             dependencies: [
             ],
-            path: "Sources/StickyNotes",
+            path: "Sources/LightToDo",
             exclude: ["react-editor"],
             resources: [
                 .process("Resources")

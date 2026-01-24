@@ -17,7 +17,7 @@ class StorageManager {
         
         // 2. 默认路径
         let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let appDir = appSupport.appendingPathComponent("StickyNotes", isDirectory: true)
+        let appDir = appSupport.appendingPathComponent("LightToDo", isDirectory: true)
         
         if !fileManager.fileExists(atPath: appDir.path) {
             try? fileManager.createDirectory(at: appDir, withIntermediateDirectories: true)

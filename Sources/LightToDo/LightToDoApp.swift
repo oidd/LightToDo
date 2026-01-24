@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct StickyNotesApp: App {
+struct LightToDoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var notesManager = NotesManager()
     @StateObject private var windowManager = WindowManager()

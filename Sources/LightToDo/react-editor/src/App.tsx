@@ -89,7 +89,7 @@ function TodoEditor() {
 
 export default function App() {
     const initialConfig = {
-        namespace: 'StickyNotes',
+        namespace: 'LightToDo',
         nodes: [
             ...PlaygroundNodes,
             ExtendedTextNode,

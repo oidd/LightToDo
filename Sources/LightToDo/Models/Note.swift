@@ -5,7 +5,7 @@ import CoreTransferable
 // 定义自定义 UTType 用于拖放
 extension UTType {
     static var note: UTType {
-        UTType(exportedAs: "com.stickynotes.note")
+        UTType(exportedAs: "com.lighttodo.note")
     }
 }
 
