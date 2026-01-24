@@ -45,8 +45,11 @@ cp "$EXECUTABLE" "$APP_BUNDLE/Contents/MacOS/"
 
 # 复制资源 Bundle (非常重要！否则 Tiptap.html 无法加载)
 if [ -d "$RESOURCES_BUNDLE" ]; then
-    echo " folder 发现资源束，正在拷贝..."
+    echo "📦 发现资源束，正在拷贝..."
+    # 标准 macOS app 路径
     cp -r "$RESOURCES_BUNDLE" "$APP_BUNDLE/Contents/Resources/"
+    # 兼容 SPM 自动生成的 Bundle.module 访问器 (它会尝试在 .app 根目录查找)
+    cp -r "$RESOURCES_BUNDLE" "$APP_BUNDLE/"
 else
     echo "⚠️ 警告: 未发现资源束 $BUNDLE_NAME，请检查 Package.swift 配置"
 fi
