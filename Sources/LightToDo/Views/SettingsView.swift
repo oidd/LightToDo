@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage("globalShortcutKeyCode") private var globalShortcutKeyCode: Int = 1 // default s keycode
     @AppStorage("todoSortMode") private var todoSortMode: String = "byDeadline" // byDeadline, none
     @AppStorage("reminderColor") private var reminderColor: String = "orange"
+    @AppStorage("reminderStyle") private var reminderStyle: String = "glow" // glow, notification
     
     @State private var isRecordingShortcut = false
     
@@ -81,6 +82,41 @@ struct SettingsView: View {
                     NotificationCenter.default.post(name: Notification.Name("EdgeBarColorChanged"), object: newValue)
                 }
                 .padding(.vertical, 4)
+                
+                // 6. 提醒样式
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("提醒样式")
+                        .font(.body)
+                    
+                    HStack(spacing: 16) {
+                        ReminderStyleOption(
+                            id: "glow",
+                            title: "呼吸光晕",
+                            imageName: "呼吸光晕",
+                            isSelected: reminderStyle == "glow"
+                        ) {
+                            reminderStyle = "glow"
+                        }
+                        
+                        ReminderStyleOption(
+                            id: "notification",
+                            title: "系统通知",
+                            imageName: "系统通知",
+                            isSelected: reminderStyle == "notification"
+                        ) {
+                            reminderStyle = "notification"
+                        }
+                    }
+                    
+                    if reminderStyle == "notification" {
+                        Text("请在系统“通知”中找到本软件，开启“持续”通知功能")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 2)
+                    }
+                }
+                .padding(.vertical, 8)
+                
             } header: {
                 Text("外观")
             }
@@ -143,7 +179,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 450, height: 400)
+        .frame(width: 450, height: 550)
     }
     
     // MARK: - Helpers
@@ -196,6 +232,50 @@ struct SettingsView: View {
                 NotificationCenter.default.post(name: Notification.Name("StoragePathChanged"), object: nil)
             }
         }
+    }
+}
+
+struct ReminderStyleOption: View {
+    let id: String
+    let title: String
+    let imageName: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .center, spacing: 8) {
+                // Image Container
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.secondary.opacity(0.05))
+                        )
+                    
+                    if let imageURL = Bundle.module.url(forResource: imageName, withExtension: "png"),
+                       let image = NSImage(contentsOf: imageURL) {
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 140, height: 70)
+                            .cornerRadius(8)
+                    } else {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(width: 140, height: 70)
+                            .cornerRadius(8)
+                    }
+                }
+                .frame(width: 140, height: 70)
+                
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(isSelected ? .primary : .secondary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

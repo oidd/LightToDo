@@ -8,9 +8,10 @@ interface TodoDetailsPanelProps {
     initialData?: ReminderData;
     onClose: () => void;
     onSave: (data: ReminderData) => void;
+    todoText: string;
 }
 
-export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave }: TodoDetailsPanelProps) {
+export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave, todoText }: TodoDetailsPanelProps) {
     const [hasDateTime, setHasDateTime] = useState(false);
     const [hasReminder, setHasReminder] = useState(false);
     const [date, setDate] = useState('');
@@ -207,7 +208,10 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave 
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (window.webkit?.messageHandlers?.editor) {
-                                            window.webkit.messageHandlers.editor.postMessage({ type: 'previewReminder' });
+                                            window.webkit.messageHandlers.editor.postMessage({
+                                                type: 'previewReminder',
+                                                text: todoText
+                                            });
                                         }
                                     }}
                                 >

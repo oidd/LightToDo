@@ -57,6 +57,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         
         setupHotKey()
         setupReminderManager()
+        
+        // Request notification permission
+        reminderManager.requestNotificationPermission()
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -89,7 +92,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     
     private func isMainWindow(_ window: NSWindow) -> Bool {
         // 排除设置窗口（根据尺寸或标题）
-        if window.frame.size.width == 450 && window.frame.size.height == 400 { return false }
+        if window.frame.size.width == 450 && window.frame.size.height == 550 { return false }
         if window.title == "Settings" || window.identifier?.rawValue == "com_apple_SwiftUI_Settings" { return false }
         return true
     }
@@ -197,13 +200,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             hideStandardButtons(for: window)
         }
     }
-
+    
     func windowDidDeminiaturize(_ notification: Notification) {
         if let window = notification.object as? NSWindow {
             hideStandardButtons(for: window)
         }
     }
-
+ 
     private func hideStandardButtons(for window: NSWindow) {
         // Allow native traffic lights
     }
@@ -227,11 +230,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             guard let self = self,
                   let windowController = self.windowController else { return }
             
-            // Note: If window is collapsed (orange edge bar), show ripple animation
-            if windowController.isCollapsed {
-                let globalColor = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
-                let color = self.colorFromString(globalColor)
-                windowController.startRippleAnimation(color: color)
+            // Handle Glow if enabled
+            let style = UserDefaults.standard.string(forKey: "reminderStyle") ?? "glow"
+            if style == "glow" {
+                if windowController.isCollapsed {
+                    let globalColor = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
+                    let color = self.colorFromString(globalColor)
+                    windowController.startRippleAnimation(color: color)
+                }
             }
             
             // Notify WebView via notification (handled by QuillEditor coordinator)
@@ -244,17 +250,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         
         // Handle preview request from WebView
-        NotificationCenter.default.addObserver(forName: NSNotification.Name("TriggerReminderPreview"), object: nil, queue: .main) { [weak self] _ in
+        NotificationCenter.default.addObserver(forName: NSNotification.Name("TriggerReminderPreview"), object: nil, queue: .main) { [weak self] notification in
             guard let self = self, let windowController = self.windowController else { return }
             
-            let globalColor = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
-            let color = self.colorFromString(globalColor)
+            // Extract text from notification object if any (new)
+            let todoText = notification.object as? String ?? "这是一个待办事项预览内容"
             
-            // Special preview logic: if not collapsed, we might want to temporarily mock it?
-            // But the user said "桌面边缘出现一条临时的长条，播放效果"
-            // So we'll force it to show even if not collapsed, or just trigger the animation if possible.
-            
-            windowController.startRippleAnimation(color: color, isPreview: true)
+            let style = UserDefaults.standard.string(forKey: "reminderStyle") ?? "glow"
+            if style == "notification" {
+                self.reminderManager.sendSystemNotification(
+                    title: "Light To Do",
+                    subtitle: "待办事项即将到期",
+                    body: todoText
+                )
+            } else {
+                let globalColor = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
+                let color = self.colorFromString(globalColor)
+                windowController.startRippleAnimation(color: color, isPreview: true)
+            }
         }
     }
     

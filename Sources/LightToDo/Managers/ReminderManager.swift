@@ -1,9 +1,11 @@
 import Foundation
 import AppKit
+import UserNotifications
 
 /// Represents a pending reminder to be triggered
 struct PendingReminder: Equatable {
     let todoKey: String
+    let text: String
     let deadline: Date
     let color: String
     let reminderMinutesBefore: Int = 1 // Trigger 1 minute before deadline
@@ -103,9 +105,48 @@ class ReminderManager: ObservableObject {
         // Notify the callback (this will trigger ripple animation on edge bar)
         onReminderTriggered?(reminder.todoKey, reminder.color)
         
+        // Handle System Notifications if enabled
+        let style = UserDefaults.standard.string(forKey: "reminderStyle") ?? "glow"
+        if style == "notification" {
+            sendSystemNotification(
+                title: "Light To Do",
+                subtitle: "待办事项即将到期",
+                body: reminder.text
+            )
+        }
+        
         // Schedule auto-stop after 1 minute if not acknowledged
         DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
             self?.stopReminder(for: reminder.todoKey)
+        }
+    }
+    
+    // MARK: - Notification Methods
+    
+    func requestNotificationPermission() {
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                print("Notification permission granted.")
+            } else if let error = error {
+                print("Notification permission error: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    func sendSystemNotification(title: String, subtitle: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.subtitle = subtitle
+        content.body = body
+        content.sound = .default
+        
+        // Trigger immediately
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("Error adding notification request: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -122,11 +163,13 @@ class ReminderManager: ObservableObject {
                           hasReminder,
                           timeMs > 0 else { return nil }
                     
+                    let text = dict["text"] as? String ?? ""
                     let color = dict["reminderColor"] as? String ?? "orange"
                     let deadline = Date(timeIntervalSince1970: timeMs / 1000)
                     
                     return PendingReminder(
                         todoKey: todoKey,
+                        text: text,
                         deadline: deadline,
                         color: color
                     )

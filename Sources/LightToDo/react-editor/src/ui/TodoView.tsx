@@ -283,6 +283,7 @@ export default function TodoView() {
                 window.webkit.messageHandlers.editor.postMessage({ type: 'counts', data: counts });
                 const reminders = allItems.filter(t => !t.checked && t.reminder?.hasReminder).map(t => ({
                     key: t.key,
+                    text: t.text,
                     time: t.reminder?.time || 0,
                     hasReminder: t.reminder?.hasReminder || false
                 }));
@@ -1209,6 +1210,7 @@ export default function TodoView() {
                 initialData={dialogInitialData}
                 onClose={() => setIsDialogOpen(false)}
                 onSave={saveReminder}
+                todoText={todos.find(t => t.key === dialogTargetKey)?.text || ''}
             />
 
             {detectionResult && shouldShowSuggestion(todos.find(t => t.key === detectionResult.id), detectionResult.result) && (
