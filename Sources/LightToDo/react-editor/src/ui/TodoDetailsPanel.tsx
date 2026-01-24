@@ -21,6 +21,9 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave,
     const [uuid, setUuid] = useState('');
     const [reminderError, setReminderError] = useState('');
 
+    // State for incremental hour shortcut (1-6)
+    const [hourIncrement, setHourIncrement] = useState(1);
+
     // Expansion state for the combined DateTime picker
     const [isDateTimeExpanded, setIsDateTimeExpanded] = useState(false);
 
@@ -55,8 +58,9 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave,
                 setTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
                 setUuid(crypto.randomUUID());
             }
-            // Reset expansion on open
+            // Reset expansion and increment on open
             setIsDateTimeExpanded(false);
+            setHourIncrement(1);
         }
     }, [isOpen, initialData]);
 
@@ -114,6 +118,63 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave,
             { value: 'monthly', label: `每月（${dayOfMonth}日）` },
             { value: 'yearly', label: `每年（${month}月${dayOfMonth}日）` }
         ];
+    };
+
+    const getQuickTimeSlots = () => {
+        const now = new Date();
+        const hour = now.getHours();
+        const slots: { label: string, timestamp: number }[] = [];
+
+        // Slot 1: Incremental Hour
+        const plusNh = new Date(now.getTime() + hourIncrement * 60 * 60 * 1000);
+        slots.push({ label: `${hourIncrement}小时后`, timestamp: plusNh.getTime() });
+
+        // Slot 2: Smart Slot
+        if (hour < 12) {
+            const afternoon = new Date(now);
+            afternoon.setHours(15, 0, 0, 0);
+            slots.push({ label: '今天下午', timestamp: afternoon.getTime() });
+        } else if (hour < 18) {
+            const tonight = new Date(now);
+            tonight.setHours(20, 0, 0, 0);
+            slots.push({ label: '今晚', timestamp: tonight.getTime() });
+        } else {
+            const tomorrowMorning = new Date(now);
+            tomorrowMorning.setDate(tomorrowMorning.getDate() + 1);
+            tomorrowMorning.setHours(9, 0, 0, 0);
+            slots.push({ label: '明早', timestamp: tomorrowMorning.getTime() });
+        }
+
+        // Slot 3: Tomorrow / Next Monday
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(9, 0, 0, 0);
+
+        // If slot 2 is already '明早', make slot 3 '下周一'
+        const isSmartTomorrow = hour >= 18;
+        if (isSmartTomorrow) {
+            const nextMonday = new Date(now);
+            const daysToMonday = (8 - now.getDay()) % 7 || 7;
+            nextMonday.setDate(now.getDate() + daysToMonday);
+            nextMonday.setHours(9, 0, 0, 0);
+            slots.push({ label: '下周一', timestamp: nextMonday.getTime() });
+        } else {
+            slots.push({ label: '明天', timestamp: tomorrow.getTime() });
+        }
+
+        return slots;
+    };
+
+    const applyQuickTime = (timestamp: number, isIncremental?: boolean) => {
+        const d = new Date(timestamp);
+        setDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+        setTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+
+        if (isIncremental) {
+            setHourIncrement(prev => prev >= 6 ? 1 : prev + 1);
+        } else {
+            setHourIncrement(1); // Reset if other shortcuts used
+        }
     };
 
     // Handle close: auto-complete if needed
@@ -180,6 +241,17 @@ export default function TodoDetailsPanel({ isOpen, initialData, onClose, onSave,
                                 />
                             </div>
                             <div className="datetime-footer">
+                                <div className="datetime-quick-pills">
+                                    {getQuickTimeSlots().map((slot, i) => (
+                                        <button
+                                            key={i}
+                                            className="datetime-pill"
+                                            onClick={() => applyQuickTime(slot.timestamp, i === 0)}
+                                        >
+                                            {i === 0 ? `${hourIncrement}小时后` : slot.label}
+                                        </button>
+                                    ))}
+                                </div>
                                 <button className="datetime-confirm-btn" onClick={handleDateTimeConfirm}>
                                     确定
                                 </button>
