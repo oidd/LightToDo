@@ -81,6 +81,13 @@ export default function TodoView() {
     const [lastClickedKey, setLastClickedKey] = useState<string | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, keys: string[] } | null>(null);
 
+    // Focused Key and Caret Position for Suggestion Sync
+    const focusedKeyRef = useRef<string | null>(null);
+    const [caretPosition, setCaretPosition] = useState<number>(0);
+    const [isSuggestionLocked, setIsSuggestionLocked] = useState<boolean>(false);
+    const focusLockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [, forceUpdate] = useState({}); // To trigger re-renders when ref changes if needed
+
     const handleRowClick = useCallback((key: string, e: React.MouseEvent) => {
         const isShift = e.shiftKey;
         const isMeta = e.metaKey || e.ctrlKey;
@@ -455,6 +462,7 @@ export default function TodoView() {
             cleanupEmptyTodos(true); // Force cleanup when switching tabs
             setFilterMode(mode);
             displayedKeys.current.clear();
+            clearDetection(); // Clear suggestions when moving between views
         };
 
         (window as any).setSearchQuery = (query: string) => {
@@ -604,6 +612,11 @@ export default function TodoView() {
                 performToggle(key, checked, todo);
             }, 300);
         } else {
+            // If we are completing the focused item, clear suggestions
+            if (checked && focusedKeyRef.current === key) {
+                focusedKeyRef.current = null;
+                clearDetection();
+            }
             performToggle(key, checked, todo);
         }
     };
@@ -752,8 +765,18 @@ export default function TodoView() {
 
         // Trigger Date Detection
         if (detectTimer.current) clearTimeout(detectTimer.current);
+
+        if (detectTimer.current) clearTimeout(detectTimer.current);
+
+        // Optimization: Don't clear detection immediately for background saves
+        // It should only clear if the user is ACTIVELY typing in the focused row
+        // and even then, we let the debounce/new request handle the transition.
+
         detectTimer.current = setTimeout(() => {
-            detectDate(key, text);
+            // ONLY detect dates for the row that still has focus!
+            if (focusedKeyRef.current === key) {
+                detectDate(key, text);
+            }
         }, 300);
     };
 
@@ -997,10 +1020,17 @@ export default function TodoView() {
                 pendingFocusKey.current = newNode.getKey();
             }
         });
+        focusedKeyRef.current = null; // Reset focus context on major action
+        clearDetection(); // Clear suggestions when creating a sub-item or moving focus
     };
 
     const handleDelete = (key: string) => {
         deleteNode(key);
+        // CRITICAL: Immediately invalidate focus context so stale async results are ignored
+        if (focusedKeyRef.current === key) {
+            focusedKeyRef.current = null;
+        }
+        clearDetection();
     };
 
     const handleCreateFirst = () => {
@@ -1014,6 +1044,8 @@ export default function TodoView() {
             root.append(listNode);
             pendingFocusKey.current = listItem.getKey();
         });
+        focusedKeyRef.current = null;
+        clearDetection(); // Always clear when creating first item
     };
 
     const openReminderSettings = (key: string, currentWarning?: ReminderData) => {
@@ -1154,8 +1186,38 @@ export default function TodoView() {
                         isSelected={selectedKeys.has(todo.key)}
                         isClosing={closingKeys.has(todo.key)}
                         onRowClick={(e) => handleRowClick(todo.key, e)}
+                        onFocus={() => {
+                            focusedKeyRef.current = todo.key;
+                            forceUpdate({}); // Ensure UI knows about focus change
+
+                            // Suppress suggestions immediately upon focus for 400ms
+                            // This prevents the "caret jumping to 0" flash when clicking into a todo
+                            setIsSuggestionLocked(true);
+                            if (focusLockTimer.current) clearTimeout(focusLockTimer.current);
+                            focusLockTimer.current = setTimeout(() => {
+                                setIsSuggestionLocked(false);
+                            }, 400);
+
+                            // 1. Clear any current static suggestion immediately
+                            clearDetection();
+
+                            // 2. Immediately trigger detection for this row to handle "re-click"
+                            if (todo.text.trim()) {
+                                detectDate(todo.key, todo.text);
+                            }
+                        }}
+                        onBlur={() => {
+                            if (focusedKeyRef.current === todo.key) {
+                                focusedKeyRef.current = null;
+                                setCaretPosition(0);
+                                setIsSuggestionLocked(false);
+                            }
+                        }}
+                        onCaretChange={(pos) => {
+                            setCaretPosition(pos);
+                        }}
                         highlightRange={
-                            (!todo.checked && detectionResult && detectionResult.id === todo.key && shouldShowSuggestion(todo, detectionResult.result))
+                            (!todo.checked && focusedKeyRef.current === todo.key && detectionResult && detectionResult.id === todo.key && shouldShowSuggestion(todo, detectionResult.result))
                                 ? detectionResult.result.range
                                 : undefined
                         }
@@ -1167,6 +1229,7 @@ export default function TodoView() {
                     </div>
                 ) : filterMode !== 'completed' && (
                     <div className="todo-fill-area" onClick={() => {
+                        clearDetection();
                         const emptyDraft = todos.find(t => t.text === "");
                         if (emptyDraft) {
                             handleDelete(emptyDraft.key);
@@ -1213,13 +1276,18 @@ export default function TodoView() {
                 todoText={todos.find(t => t.key === dialogTargetKey)?.text || ''}
             />
 
-            {detectionResult && shouldShowSuggestion(todos.find(t => t.key === detectionResult.id), detectionResult.result) && (
-                <DateSuggestionPopup
-                    result={detectionResult.result}
-                    targetRef={itemRefs.current[detectionResult.id]}
-                    onApply={applyDateSuggestion}
-                />
-            )}
+            {detectionResult &&
+                focusedKeyRef.current === detectionResult.id &&
+                !isSuggestionLocked && // Focus Lock: Don't show anything during initial focus transition
+                caretPosition >= detectionResult.result.range[0] &&
+                caretPosition <= detectionResult.result.range[0] + detectionResult.result.range[1] &&
+                shouldShowSuggestion(todos.find(t => t.key === detectionResult.id), detectionResult.result) && (
+                    <DateSuggestionPopup
+                        result={detectionResult.result}
+                        targetRef={itemRefs.current[detectionResult.id]}
+                        onApply={applyDateSuggestion}
+                    />
+                )}
 
 
         </div>
@@ -1241,9 +1309,12 @@ interface RowProps {
     isSelected?: boolean;
     isClosing?: boolean;
     onRowClick?: (e: React.MouseEvent) => void;
+    onFocus?: () => void;
+    onBlur?: () => void;
+    onCaretChange?: (pos: number) => void;
 }
 
-function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode, isRinging, highlightRange, isSelected, isClosing, onRowClick }: RowProps) {
+function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode, isRinging, highlightRange, isSelected, isClosing, onRowClick, onFocus, onBlur, onCaretChange }: RowProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [localText, setLocalText] = useState(todo.text);
     const isComposing = useRef(false);
@@ -1452,7 +1523,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                         className="todo-input-mirror"
                         aria-hidden="true"
                         style={{
-                            visibility: 'visible',
+                            visibility: highlightRange ? 'visible' : 'hidden',
                             color: 'inherit',
                             zIndex: 0,
                             pointerEvents: 'none'
@@ -1497,7 +1568,18 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                                 e.preventDefault();
                             }
                         }}
-                        onBlur={() => onTextChange(todo.key, localText)}
+                        onBlur={(e) => {
+                            onTextChange(todo.key, localText);
+                            onBlur?.();
+                        }}
+                        onFocus={onFocus}
+                        onSelect={(e) => {
+                            const target = e.target as HTMLTextAreaElement;
+                            const prefix = getPriorityPrefix() || '';
+                            // Adjust caret position relative to the ACTUAL text (without priority prefix)
+                            const relativePos = Math.max(0, target.selectionStart - prefix.length);
+                            onCaretChange?.(relativePos);
+                        }}
                         placeholder="输入待办事项"
                         spellCheck={false}
                         readOnly={todo.checked || isCompletedMode}

@@ -4053,7 +4053,8 @@ select:focus,
 .todo-input-mirror {
   display: block !important;
   height: auto !important;
-  visibility: hidden !important;
+  visibility: hidden;
+  /* Default to hidden, overridden by React inline style */
   pointer-events: none !important;
 }
 

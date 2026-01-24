@@ -106,7 +106,8 @@ export const DateSuggestionPopup: React.FC<PopupProps> = ({ result, targetRef, o
     };
 
     return (
-        <div style={style} onClick={(e) => {
+        <div style={style} onMouseDown={(e) => {
+            e.preventDefault(); // Prevent blurring the textarea, ensuring the popup stays until onApply clears it
             e.stopPropagation();
             onApply();
         }}>

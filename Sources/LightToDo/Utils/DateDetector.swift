@@ -26,8 +26,23 @@ class DateDetector {
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         let matches = detector.matches(in: text, options: [], range: range)
         
-        guard let match = matches.first, let date = match.date else {
+        guard let match = matches.first, let originalDate = match.date else {
             return nil
+        }
+        
+        var date = originalDate
+        let now = Date()
+        
+        // Smart correction for "Today": if the detected time has already passed today, 
+        // boost it to the next logical hour to avoid suggesting expired tasks.
+        if Calendar.current.isDateInToday(date) && date < now {
+            // Suggest the next hour mark. e.g., if it's 16:34 and suggested 15:00, move to 17:00.
+            if let nextHour = Calendar.current.date(byAdding: .hour, value: 1, to: now) {
+                let components = Calendar.current.dateComponents([.year, .month, .day, .hour], from: nextHour)
+                if let adjustedDate = Calendar.current.date(from: components) {
+                    date = adjustedDate
+                }
+            }
         }
         
         let matchedString = (text as NSString).substring(with: match.range)
