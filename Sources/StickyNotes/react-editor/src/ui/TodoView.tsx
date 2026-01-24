@@ -535,7 +535,7 @@ export default function TodoView() {
 
         const handleGlobalMouseDown = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
-            if (!target.closest('.todo-row') && !target.closest('.todo-details-panel') && !target.closest('.dropdown')) {
+            if (!target.closest('.todo-row') && !target.closest('.todo-details-panel') && !target.closest('.dropdown') && !target.closest('.todo-fill-area')) {
                 // Use a small timeout to allow focus to shift before checking emptiness
                 setTimeout(() => cleanupEmptyTodos(), 100);
             }
