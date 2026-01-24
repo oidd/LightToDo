@@ -55,7 +55,7 @@ class EdgeSnapWindowController: NSObject {
         self.lastUserSize = window.frame.size
         
         // 配置窗口样式
-        window.level = .floating
+        window.level = .normal
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.backgroundColor = .clear
         window.isOpaque = false
