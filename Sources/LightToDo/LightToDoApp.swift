@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct LightToDoApp: App {
@@ -58,8 +59,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         setupHotKey()
         setupReminderManager()
         
-        // Request notification permission
-        reminderManager.requestNotificationPermission()
+        // 核心修复：强制在启动时请求通知权限
+        print("🔔 正在尝试申请通知权限...")
+        UNUserNotificationCenter.current().requestAuthorization(options: [UNAuthorizationOptions.alert, UNAuthorizationOptions.sound, UNAuthorizationOptions.badge]) { granted, error in
+            if granted {
+                print("✅ 系统通知权限已获得")
+            } else if let error = error {
+                print("❌ 系统通知权限申请失败: \(error.localizedDescription)")
+            } else {
+                print("⚠️ 用户拒绝了通知权限")
+            }
+        }
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

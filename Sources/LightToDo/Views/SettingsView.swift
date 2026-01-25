@@ -105,14 +105,23 @@ struct SettingsView: View {
                             isSelected: reminderStyle == "notification"
                         ) {
                             reminderStyle = "notification"
+                            ReminderManager.shared.requestNotificationPermission()
                         }
                     }
                     
                     if reminderStyle == "notification" {
-                        Text("请在系统“通知”中找到本软件，开启“持续”通知功能")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding(.top, 2)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("请在系统“设置 -> 通知”中允许“轻待办”发送通知")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Button("打开系统通知设置") {
+                                ReminderManager.shared.openSystemNotificationSettings()
+                            }
+                            .buttonStyle(.link)
+                            .controlSize(.small)
+                        }
+                        .padding(.top, 2)
                     }
                 }
                 .padding(.vertical, 8)

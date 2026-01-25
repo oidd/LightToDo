@@ -1,6 +1,9 @@
 # Build outputs
 .build/
 StickyNotes.app/
+Light To Do.app/    # 忽略新应用包
+*.dmg               # 忽略打包生成的磁盘镜像
+dmg_staging/        # 忽略打包过程的临时目录
 
 # Xcode
 *.xcodeproj/
@@ -14,7 +17,8 @@ npm-debug.log
 .npm/
 
 # React build
-Sources/StickyNotes/react-editor/dist/
+Sources/LightToDo/react-editor/dist/
+Sources/LightToDo/Resources/lexical-editor.html # 忽略自动生成的同步资源
 
 # macOS
 .DS_Store
@@ -27,3 +31,4 @@ Sources/StickyNotes/react-editor/dist/
 
 # Misc
 *.log
+AppIcon.iconset/    # 忽略图标生成临时目录

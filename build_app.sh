@@ -48,8 +48,6 @@ if [ -d "$RESOURCES_BUNDLE" ]; then
     echo "📦 发现资源束，正在拷贝..."
     # 标准 macOS app 路径
     cp -r "$RESOURCES_BUNDLE" "$APP_BUNDLE/Contents/Resources/"
-    # 兼容 SPM 自动生成的 Bundle.module 访问器 (它会尝试在 .app 根目录查找)
-    cp -r "$RESOURCES_BUNDLE" "$APP_BUNDLE/"
 else
     echo "⚠️ 警告: 未发现资源束 $BUNDLE_NAME，请检查 Package.swift 配置"
 fi
@@ -104,6 +102,10 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << 'EOF'
     <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+    <key>CFBundleDisplayName</key>
+    <string>轻待办</string>
+    <key>NSUserNotificationAlertStyle</key>
+    <string>alert</string>
 </dict>
 </plist>
 EOF
@@ -111,6 +113,12 @@ EOF
 # 创建 PkgInfo
 echo -n "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"
 
-echo "✅ App Bundle 创建成功: $APP_BUNDLE"
+# 关键修复：清理扩展属性并执行伪签名 (Ad-hoc Signing)
+# 对于未签名软件，执行一次伪签名能让系统认为该软件具有“身份标识”，从而允许其注册通知中心。
+echo "🔐 正在清理并执行 Ad-hoc 签名以激活系统服务..."
+xattr -cr "$APP_BUNDLE"
+codesign --force --deep -s - "$APP_BUNDLE"
+
+echo "✅ App Bundle 创建并签名成功: $APP_BUNDLE"
 echo "🚀 正在启动应用..."
 open "$APP_BUNDLE"

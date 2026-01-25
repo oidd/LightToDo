@@ -16,7 +16,7 @@ struct PendingReminder: Equatable {
 }
 
 /// Manages reminder scheduling and triggering
-class ReminderManager: ObservableObject {
+class ReminderManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = ReminderManager()
     
     @Published private(set) var activeReminders: [String] = [] // Keys of todos currently reminding
@@ -29,12 +29,27 @@ class ReminderManager: ObservableObject {
     var onReminderTriggered: ((String, String) -> Void)? // (todoKey, color)
     var onStopRipple: (() -> Void)?
     
-    private init() {
+    override private init() {
+        super.init()
+        UNUserNotificationCenter.current().delegate = self
         startPeriodicCheck()
     }
     
     deinit {
         checkTimer?.invalidate()
+    }
+    
+    // MARK: - UNUserNotificationCenterDelegate
+    
+    // App 处于前台时也能显示通知
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .badge])
+    }
+
+    // 用户点击通知时的响应
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        // 可以根据需要跳转到特定页面
+        completionHandler()
     }
     
     // MARK: - Timer Management
@@ -70,7 +85,6 @@ class ReminderManager: ObservableObject {
     /// Called when the window expands - triggers bell animations for active reminders
     func onWindowExpanded() {
         // Bell animations are triggered via JavaScript through the editor
-        // This is handled by the notification sent to WebView
     }
     
     // MARK: - Reminder Checking
@@ -125,12 +139,29 @@ class ReminderManager: ObservableObject {
     
     func requestNotificationPermission() {
         let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if granted {
-                print("Notification permission granted.")
-            } else if let error = error {
-                print("Notification permission error: \(error.localizedDescription)")
+        center.getNotificationSettings { settings in
+            switch settings.authorizationStatus {
+            case .notDetermined:
+                center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+                    if granted {
+                        print("✅ Notification permission granted.")
+                    } else if let error = error {
+                        print("❌ Notification permission error: \(error.localizedDescription)")
+                    }
+                }
+            case .denied:
+                print("⚠️ Notification permission denied. User needs to enable it in System Settings.")
+            case .authorized, .provisional:
+                print("✅ Notification permission already authorized.")
+            @unknown default:
+                break
             }
+        }
+    }
+    
+    func openSystemNotificationSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
+            NSWorkspace.shared.open(url)
         }
     }
     
@@ -141,11 +172,10 @@ class ReminderManager: ObservableObject {
         content.body = body
         content.sound = .default
         
-        // Trigger immediately
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("Error adding notification request: \(error.localizedDescription)")
+                print("❌ Error adding notification request: \(error.localizedDescription)")
             }
         }
     }
