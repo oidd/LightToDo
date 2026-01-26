@@ -13,20 +13,6 @@ class EdgeSnapWindowController: NSObject {
     // 状态
     private(set) var state: WindowState = .floating
     
-    func logDebug(_ msg: String) {
-        let str = "\(Date()): \(msg)\n"
-        if let data = str.data(using: .utf8) {
-             let url = URL(fileURLWithPath: "/Users/ivean/Documents/软件安装/我的扩展/轻待办/LightToDo/debug.log")
-             if let handle = try? FileHandle(forWritingTo: url) {
-                 handle.seekToEndOfFile()
-                 handle.write(data)
-                 handle.closeFile()
-             } else {
-                 try? data.write(to: url)
-             }
-        }
-    }
-    
     private(set) var snapEdge: SnapEdge = .none
     
     // Default to right if not set
@@ -171,7 +157,6 @@ class EdgeSnapWindowController: NSObject {
     
     
     @objc private func windowWillClose(_ notification: Notification) {
-        logDebug("windowWillClose called")
         // Window closed directly (CMD+W or Red Button)
         // Trigger standard fade-out animation.
         // The overlay window will handle hiding itself after the animation completes.
@@ -542,7 +527,6 @@ class EdgeSnapWindowController: NSObject {
     }
     
     private func expand() {
-        logDebug("expand called. State: \(state), SnapEdge: \(snapEdge)")
         guard let window = window, snapEdge != .none else { return }
         // 防止重复展开
         if state == .expanded { return }
@@ -705,7 +689,7 @@ class EdgeSnapWindowController: NSObject {
         // 如果只是想看一眼，没点击，鼠标移走就收起。
         // 新增：如果是 Dock 唤醒的等待状态，也不收起
         if state != .expanded || hasUserInteraction || pendingDockInteraction {
-             logDebug("Skipping Collapse Check. State: \(state), Interact: \(hasUserInteraction), Dock: \(pendingDockInteraction)")
+             // logDebug("Skipping Collapse Check. State: \(state), Interact: \(hasUserInteraction), Dock: \(pendingDockInteraction)")
             stopMouseTrackingTimer()
             return
         }
@@ -718,7 +702,6 @@ class EdgeSnapWindowController: NSObject {
         
         // 如果鼠标在扩展区域外才折叠
         if !extendedFrame.contains(mouseLocation) {
-            logDebug("checkMousePositionForCollapse: Mouse outside. Collapsing.")
             stopMouseTrackingTimer()
             visualEffectOverlay?.stopExpandEffect() // Stop beam immediately on mouse exit logic
             collapse()
@@ -811,8 +794,6 @@ class EdgeSnapWindowController: NSObject {
     
     private func summonWindow() {
         guard let window = window else { return }
-        
-        logDebug("summonWindow called")
         
         // 1. Activate App
         NSApp.activate(ignoringOtherApps: true)

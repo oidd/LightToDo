@@ -8,20 +8,6 @@ class VisualEffectOverlayWindow: NSPanel {
     private var dustLayer: CALayer?
     private var cleanupWorkItem: DispatchWorkItem?
     
-    func logDebug(_ msg: String) {
-        let str = "Effects: \(Date()): \(msg)\n"
-        if let data = str.data(using: .utf8) {
-             let url = URL(fileURLWithPath: "/Users/ivean/Documents/软件安装/我的扩展/轻待办/LightToDo/debug.log")
-             if let handle = try? FileHandle(forWritingTo: url) {
-                 handle.seekToEndOfFile()
-                 handle.write(data)
-                 handle.closeFile()
-             } else {
-                 try? data.write(to: url)
-             }
-        }
-    }
-    
     init() {
         // Start as a zero-size window but we will expand it to screen size when needed.
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -99,7 +85,6 @@ class VisualEffectOverlayWindow: NSPanel {
     // MARK: - Expand Effect (Beam & Dust)
     
     func startExpandEffect(edge: SnapEdge, frame: NSRect, color: NSColor) {
-        logDebug("startExpandEffect called")
         // Cancel any pending cleanup to prevent race conditions
         cleanupWorkItem?.cancel()
         cleanupWorkItem = nil
@@ -317,7 +302,6 @@ class VisualEffectOverlayWindow: NSPanel {
     }
     
     func stopExpandEffect(closeWindow: Bool = true) {
-        logDebug("stopExpandEffect called. closeWindow: \(closeWindow)")
         // Fix: Cancel any existing cleanup item.
         // If stopExpandEffect is called multiple times (e.g. once by mouse exit, once by collapse animation),
         // we must ensure we don't create multiple "orphan" timers. Only the latest one should be active.
@@ -373,7 +357,6 @@ class VisualEffectOverlayWindow: NSPanel {
             // Critical: Use cancellable item for the delayed window hide.
             // STRONG CAPTURE FIX: Capture 'self' STRONGLY to keep window alive until cleanup is done.
             let item = DispatchWorkItem { 
-                self.logDebug("Running cleanup item (OrderOut)")
                 dustToRemove?.removeFromSuperlayer()
                 // Ensure the window itself is hidden after the effects are gone
                 self.orderOut(nil)
