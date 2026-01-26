@@ -138,6 +138,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         
         self.windowController = EdgeSnapWindowController(window: window)
+        
+        // Hook minimize button
+        hookMinimizeButton(for: window)
     }
     
     // MARK: - Window Delegate (Close Behavior)
@@ -148,9 +151,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSApplication.shared.terminate(nil)
             return true
         } else {
-            sender.miniaturize(nil)
+            // New Behavior: Snap to edge instead of Dock minimize
+            windowController?.snapToPreferredEdge()
             return false
         }
+    }
+    
+    // Intercept standard minimize button (traffic light)
+    @objc func customMinimizeAction(_ sender: Any?) {
+         windowController?.snapToPreferredEdge()
     }
     
     // MARK: - Shortcuts
@@ -188,6 +197,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func windowDidResize(_ notification: Notification) {
         if let window = notification.object as? NSWindow {
             hideStandardButtons(for: window)
+            hookMinimizeButton(for: window)
         }
     }
     
@@ -208,17 +218,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 setupMainWindow(window)
             }
             hideStandardButtons(for: window)
+            hookMinimizeButton(for: window)
         }
     }
     
     func windowDidDeminiaturize(_ notification: Notification) {
         if let window = notification.object as? NSWindow {
             hideStandardButtons(for: window)
+            hookMinimizeButton(for: window)
         }
     }
  
     private func hideStandardButtons(for window: NSWindow) {
         // Allow native traffic lights
+    }
+    
+    private func hookMinimizeButton(for window: NSWindow) {
+        if let minButton = window.standardWindowButton(.miniaturizeButton) {
+            // Remove existing targets to be safe (optional, but good practice if adding multiple times, though target=self replaces)
+            minButton.target = self
+            minButton.action = #selector(customMinimizeAction)
+        }
     }
     
     func toggleAppVisibility() {

@@ -8,7 +8,7 @@ enum WindowState {
     case locked         // 锁定展开（有用户操作）
 }
 
-enum SnapEdge {
+enum SnapEdge: String {
     case none
     case left
     case right

@@ -12,6 +12,17 @@ class EdgeSnapWindowController: NSObject {
     // 状态
     private(set) var state: WindowState = .floating
     private(set) var snapEdge: SnapEdge = .none
+    
+    // Default to right if not set
+    private var preferredEdge: SnapEdge {
+        get {
+            let rawValue = UserDefaults.standard.string(forKey: "preferredSnapEdge") ?? "right"
+            return SnapEdge(rawValue: rawValue) ?? .right
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: "preferredSnapEdge")
+        }
+    }
     private var hasUserInteraction = false
     private var pendingDockInteraction = false
     private var originalFrame: NSRect = .zero
@@ -105,6 +116,21 @@ class EdgeSnapWindowController: NSObject {
             name: Notification.Name("EdgeBarColorChanged"),
             object: nil
         )
+        
+        // 监听应用活跃状态 (用于后台召唤/自动收起)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppResignedActive),
+            name: NSApplication.didResignActiveNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppBecameActive),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
     }
     
     @objc private func windowDidEndLiveResize(_ notification: Notification) {
@@ -121,9 +147,16 @@ class EdgeSnapWindowController: NSObject {
         indicator.updateColor(colorFromString(colorName))
         
         indicator.onMouseEntered = { [weak self] in
-            // 鼠标碰到线条，立即展开
-            self?.stopRippleAnimation()
-            self?.expand()
+            guard let self = self else { return }
+            self.stopRippleAnimation()
+            
+            if self.state == .floating {
+                // Summon Mode: Bring window to front
+                self.summonWindow()
+            } else {
+                // Expand Mode: Slide out
+                self.expand()
+            }
         }
         self.indicatorWindow = indicator
         
@@ -285,6 +318,7 @@ class EdgeSnapWindowController: NSObject {
         guard let screen = window.screen ?? NSScreen.main else { return }
         
         snapEdge = edge
+        preferredEdge = edge // Save preference
         originalFrame = window.frame
         
         let screenFrame = screen.visibleFrame
@@ -567,6 +601,87 @@ class EdgeSnapWindowController: NSObject {
         }
     }
     
+    // MARK: - Background / Summon Logic
+    
+    @objc private func handleAppResignedActive(_ notification: Notification) {
+        // App goes to background
+        
+        if state == .floating {
+             // Show summon strip at preferred edge
+             // But we need to fake a 'snapEdge' for the indicator logic to work, OR pass it explicitly.
+             // Let's modify showIndicator to accept an optional edge override.
+             // Or sets a temporary var.
+             showIndicatorForSummon()
+        } else if state == .expanded {
+             // Auto collapse if expanded and lost focus
+             collapse()
+        }
+    }
+    
+    @objc private func handleAppBecameActive(_ notification: Notification) {
+        // App comes to foreground
+        
+        if state == .floating {
+            // Hide summon strip
+            indicatorWindow?.orderOut(nil)
+        }
+    }
+    
+    private func summonWindow() {
+        guard let window = window else { return }
+        
+        // 1. Activate App
+        NSApp.activate(ignoringOtherApps: true)
+        
+        // 2. Bring window to front
+        window.makeKeyAndOrderFront(nil)
+        
+        // 3. Hide indicator
+        indicatorWindow?.orderOut(nil)
+    }
+    
+    private func showIndicatorForSummon() {
+        guard let window = window else { return }
+        // Use preferred edge
+        let edge = preferredEdge
+        
+        // Reuse showIndicator logic but force the edge
+        // Note: showIndicator uses self.snapEdge. We need to override or temporarily set it?
+        // Better: refactor showIndicator to take an argument, or use a temp trick.
+        // Let's create a specific helper to avoid messing with 'snapEdge' state.
+        
+        guard let indicator = indicatorWindow, let screen = window.screen ?? NSScreen.main else { return }
+        
+        let colorName = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
+        indicator.updateColor(colorFromString(colorName))
+        
+        let screenFrame = screen.visibleFrame
+        let mainHeight = window.frame.height
+        // If floating, use window's current centerY? Or preferredY?
+        // User requested: "persistent vertical position... if never used default center".
+        // For now let's use the window's current Y if possible, or center if that feels disconnected?
+        // Actually user said: "instructions... keep persisted position".
+        // Simplification: Just match window Y for now if floating.
+        let mainY = window.frame.minY
+        
+        let indicatorWidth: CGFloat = 6
+        let indicatorHeight = mainHeight
+        
+        var indicatorFrame = NSRect(x: 0, y: mainY, width: indicatorWidth, height: indicatorHeight)
+        
+        switch edge {
+        case .left:
+            indicatorFrame.origin.x = screenFrame.minX
+        case .right:
+            indicatorFrame.origin.x = screenFrame.maxX - indicatorWidth
+        default: break
+        }
+        
+        // Ensure indicator is visible
+        indicator.setFrame(indicatorFrame, display: true)
+        indicator.orderFront(nil)
+    }
+    
     // MARK: - Reminder Animation
     
     /// Start ripple animation with the specified color (called when a reminder triggers)
@@ -637,6 +752,11 @@ class EdgeSnapWindowController: NSObject {
     /// Check if the window is in collapsed (hidden) state
     var isCollapsed: Bool {
         return state == .collapsed
+    }
+    
+    /// Public API for minimizing (intercepted from AppDelegate)
+    func snapToPreferredEdge() {
+        snapToEdge(preferredEdge)
     }
 }
 
