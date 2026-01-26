@@ -6,6 +6,7 @@ class VisualEffectOverlayWindow: NSPanel {
     private var beamLayer: CALayer?
     private var beamMaskLayer: CAShapeLayer?
     private var dustLayer: CALayer?
+    private var cleanupWorkItem: DispatchWorkItem?
     
     init() {
         // Start as a zero-size window but we will expand it to screen size when needed.
@@ -29,6 +30,10 @@ class VisualEffectOverlayWindow: NSPanel {
     // MARK: - Collapse Effect (Impact)
     
     func startCollapseEffect(edge: SnapEdge, point: CGPoint, color: NSColor) {
+        // Ensure we clean up any expansion effects (beam/dust) AND schedule the window to close
+        // eventually (after the dust fade time, which covers the explosion time too).
+        stopExpandEffect(closeWindow: true)
+        
         guard let layer = self.contentView?.layer else { return }
         
         // 1. Configure High-Intensity Color
@@ -80,8 +85,12 @@ class VisualEffectOverlayWindow: NSPanel {
     // MARK: - Expand Effect (Beam & Dust)
     
     func startExpandEffect(edge: SnapEdge, frame: NSRect, color: NSColor) {
+        // Cancel any pending cleanup to prevent race conditions
+        cleanupWorkItem?.cancel()
+        cleanupWorkItem = nil
+        
         guard let layer = self.contentView?.layer, let screen = NSScreen.main else { return }
-        stopExpandEffect()
+        stopExpandEffect(closeWindow: false)
         
         // 1. Full Screen Setup (Eliminates coordinate math confusion)
         let screenFrame = screen.frame
@@ -292,49 +301,70 @@ class VisualEffectOverlayWindow: NSPanel {
         layer.add(fade, forKey: "fadeIn")
     }
     
-    func stopExpandEffect() {
-        guard let beam = beamLayer, let dust = dustLayer else { return }
+    func stopExpandEffect(closeWindow: Bool = true) {
+        // Remove guard to ensure we ALWAYS clean up, even if layers are already nil.
+        // guard let beam = beamLayer, let dust = dustLayer else { return }
         
-        // Retain references for cleanup closure
-        let beamToRemove = beam
-        let dustToRemove = dust
+        // Retain references for cleanup closure (if they exist)
+        let beamToRemove = beamLayer
+        let dustToRemove = dustLayer
         
         // Clear references so new effects can start immediately if needed
         self.beamLayer = nil
         self.dustLayer = nil
         
         // 1. Beam Fade Out (Immediate)
-        let beamFade = CABasicAnimation(keyPath: "opacity")
-        beamFade.fromValue = 1.0
-        beamFade.toValue = 0.0
-        beamFade.duration = 0.2 // Vanish quickly
-        beamFade.fillMode = .forwards
-        beamFade.isRemovedOnCompletion = false
-        beamToRemove.add(beamFade, forKey: "fadeOut")
+        if let beam = beamToRemove {
+            let beamFade = CABasicAnimation(keyPath: "opacity")
+            beamFade.fromValue = 1.0
+            beamFade.toValue = 0.0
+            beamFade.duration = 0.2 // Vanish quickly
+            beamFade.fillMode = .forwards
+            beamFade.isRemovedOnCompletion = false
+            beam.add(beamFade, forKey: "fadeOut")
+        }
         
         // 2. Dust Fade Out (Lingering Afterglow)
-        let dustFade = CABasicAnimation(keyPath: "opacity")
-        dustFade.fromValue = 1.0
-        dustFade.toValue = 0.0
-        dustFade.duration = 2.5 // Long linger as requested
-        dustFade.fillMode = .forwards
-        dustFade.isRemovedOnCompletion = false
-        dustToRemove.add(dustFade, forKey: "fadeOut")
-        
-        // Stop emitting new particles immediately
-        if let emitter = dustToRemove as? CAEmitterLayer {
-            emitter.birthRate = 0
-        } else if let emitter = dustToRemove.sublayers?.first(where: { $0 is CAEmitterLayer }) as? CAEmitterLayer {
-            emitter.birthRate = 0
+        if let dust = dustToRemove {
+            let dustFade = CABasicAnimation(keyPath: "opacity")
+            dustFade.fromValue = 1.0
+            dustFade.toValue = 0.0
+            dustFade.duration = 2.5 // Long linger as requested
+            dustFade.fillMode = .forwards
+            dustFade.isRemovedOnCompletion = false
+            dust.add(dustFade, forKey: "fadeOut")
+            
+            // Stop emitting new particles immediately
+            if let emitter = dust as? CAEmitterLayer {
+                emitter.birthRate = 0
+            } else if let emitter = dust.sublayers?.first(where: { $0 is CAEmitterLayer }) as? CAEmitterLayer {
+                emitter.birthRate = 0
+            }
         }
         
         // Independent cleanups
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            beamToRemove.removeFromSuperlayer()
+            beamToRemove?.removeFromSuperlayer()
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            dustToRemove.removeFromSuperlayer()
+        if closeWindow {
+            // Critical: Use cancellable item for the delayed window hide.
+            // STRONG CAPTURE FIX: Capture 'self' STRONGLY to keep window alive until cleanup is done.
+            let item = DispatchWorkItem { 
+                dustToRemove?.removeFromSuperlayer()
+                // Ensure the window itself is hidden after the effects are gone
+                self.orderOut(nil)
+                // Break the retain cycle we created manually
+                self.cleanupWorkItem = nil
+            }
+            
+            self.cleanupWorkItem = item
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: item)
+        } else {
+             // Just schedule layer removal, don't close window
+             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                 dustToRemove?.removeFromSuperlayer()
+             }
         }
     }
     

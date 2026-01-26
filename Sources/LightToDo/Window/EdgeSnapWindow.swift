@@ -54,6 +54,10 @@ class EdgeSnapWindowController: NSObject {
     }
     
     deinit {
+        // Ultimate Failsafe: Ensure effects are removed if controller is destroyed.
+        // This handles cases where windowWillClose notifications might race with deallocation.
+        visualEffectOverlay?.stopExpandEffect()
+        
         removeMouseMonitors()
         stopDragMonitoring()
         mouseTrackingTimer?.invalidate()
@@ -96,6 +100,22 @@ class EdgeSnapWindowController: NSObject {
             object: window
         )
         
+        // 监听窗口关闭 (用于清理特效)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowWillClose),
+            name: NSWindow.willCloseNotification,
+            object: window
+        )
+        
+        // 监听窗口最小化 (用于清理特效)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowWillMiniaturize),
+            name: NSWindow.willMiniaturizeNotification,
+            object: window
+        )
+        
         // 初始化辅助线条窗口
         createIndicatorWindow()
         
@@ -132,6 +152,29 @@ class EdgeSnapWindowController: NSObject {
             name: NSApplication.didBecomeActiveNotification,
             object: nil
         )
+    }
+    
+    
+    @objc private func windowWillClose(_ notification: Notification) {
+        // Window closed directly (CMD+W or Red Button)
+        // Trigger standard fade-out animation.
+        // The overlay window will handle hiding itself after the animation completes.
+        visualEffectOverlay?.stopExpandEffect()
+        
+        // Reset state
+        state = .floating 
+        snapEdge = .none
+        indicatorWindow?.orderOut(nil)
+    }
+    
+    @objc private func windowWillMiniaturize(_ notification: Notification) {
+        // Window minimized (Yellow Button)
+        // Trigger standard fade-out animation.
+        visualEffectOverlay?.stopExpandEffect()
+        
+        state = .floating
+        snapEdge = .none
+        indicatorWindow?.orderOut(nil)
     }
     
     @objc private func windowDidEndLiveResize(_ notification: Notification) {
@@ -438,7 +481,7 @@ class EdgeSnapWindowController: NSObject {
             // Just pass the strip center point in screen coordinates?
             // The overlay will be placed to cover the area.
             let stripX = (self.snapEdge == .left) ? (screenFrame.minX) : (screenFrame.maxX)
-            let impactPoint = CGPoint(x: stripX, y: midY) 
+ 
             
             // For now, let's just use the strip's frame for calculations inside.
             // We need to map coordinates.
@@ -535,7 +578,7 @@ class EdgeSnapWindowController: NSObject {
         
         // 每次显示时刷新颜色（确保使用最新的用户设置）
         let colorName = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
-        var color = colorFromString(colorName)
+        let color = colorFromString(colorName)
         
         if isIntense {
             // NOTE: We no longer override the base 'color' here.
