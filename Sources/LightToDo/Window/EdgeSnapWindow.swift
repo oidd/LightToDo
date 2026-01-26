@@ -4,7 +4,8 @@ import SwiftUI
 class EdgeSnapWindowController: NSObject {
     weak var window: NSWindow?
     private var indicatorWindow: EdgeIndicatorWindow?
-    private var rippleOverlay: RippleOverlayWindow?
+    private var rippleOverlay: RippleOverlayWindow? // Keep existing for reminder ripples if needed, or deprecate? Let's keep for now.
+    private var visualEffectOverlay: VisualEffectOverlayWindow?
     
     // 配置
 
@@ -176,6 +177,10 @@ class EdgeSnapWindowController: NSObject {
         
         // Create ripple overlay
         rippleOverlay = RippleOverlayWindow()
+        
+        // Create new visual effect overlay
+        visualEffectOverlay = VisualEffectOverlayWindow()
+        
     }
     
     @objc private func handleColorChange(_ notification: Notification) {
@@ -289,6 +294,7 @@ class EdgeSnapWindowController: NSObject {
              hasUserInteraction = false
              pendingDockInteraction = false
              indicatorWindow?.orderOut(nil)
+             visualEffectOverlay?.stopExpandEffect() // Fix: Remove beam when dragging
              stopMouseTrackingTimer()
              
              // Restore interaction
@@ -417,6 +423,40 @@ class EdgeSnapWindowController: NSObject {
             
             // 4. 显示指示线条
             self.showIndicator(for: self.window!)
+            
+            // 5. Trigger Collapse Animation (Squash & Particles)
+            let colorName = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
+            let color = self.colorFromString(colorName)
+            
+            // Determine impact point (center of strip vertically)
+            let midY = self.window!.frame.midY - (self.window!.screen?.frame.minY ?? 0)
+            // But we need screen coordinates for the overlay? No, overlay is usually fullscreen or large.
+            // VisualEffectOverlayWindow handles coordinates relative to itself.
+            // Let's pass the point relative to the Overlay's future frame?
+            // Actually, we'll position the overlay to cover the impact area.
+            
+            // Just pass the strip center point in screen coordinates?
+            // The overlay will be placed to cover the area.
+            let stripX = (self.snapEdge == .left) ? (screenFrame.minX) : (screenFrame.maxX)
+            let impactPoint = CGPoint(x: stripX, y: midY) 
+            
+            // For now, let's just use the strip's frame for calculations inside.
+            // We need to map coordinates.
+            // Let's simplify: pass edge and let overlay handle mapping if it fills screen?
+            // VisualEffectOverlay logic expects `startCollapseEffect(edge:point:color:)`. 
+            
+            // Let's position overlay first?
+            let overlayRect = screenFrame
+            self.visualEffectOverlay?.setFrame(overlayRect, display: true)
+            self.visualEffectOverlay?.orderFront(nil)
+            
+            // Convert stripX to overlay local
+            let localPoint = CGPoint(x: (self.snapEdge == .left) ? 0 : overlayRect.width, y: midY - overlayRect.minY)
+            
+            self.visualEffectOverlay?.startCollapseEffect(edge: self.snapEdge, point: localPoint, color: color)
+            
+            // Trigger Strip Squash Animation (Only for impact, no color revert)
+            self.indicatorWindow?.animateSquashAndStretch()
         }
     }
     
@@ -445,8 +485,10 @@ class EdgeSnapWindowController: NSObject {
         window.alphaValue = 1
         window.ignoresMouseEvents = false
         
-        // 2. 隐藏指示线条
-        indicatorWindow?.orderOut(nil)
+        // 2. Set Intensity IMMEDIATELY (User feedback: sync color)
+        // This ensures the color is bold BEFORE the window starts moving.
+        self.showIndicator(for: window, isIntense: true)
+        indicatorWindow?.level = .screenSaver
         
         let screenFrame = screen.visibleFrame
         var newFrame = window.frame
@@ -475,29 +517,50 @@ class EdgeSnapWindowController: NSObject {
             self.isProgrammaticMove = false
             
             self.state = .expanded
-            self.hasUserInteraction = false
+            // 4. Maintenance / Force position update
+            self.showIndicator(for: window, isIntense: true)
+            self.startMouseTrackingTimer() 
             
-            // 4. 展开后，如果不操作，鼠标离开要自动缩回
-            self.startMouseTrackingTimer()
+            // 5. Trigger Beam
+            let colorName = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
+            let color = self.colorFromString(colorName)
+            
+            self.visualEffectOverlay?.orderFront(nil) 
+            self.visualEffectOverlay?.startExpandEffect(edge: self.snapEdge, frame: self.window!.frame, color: color)
         }
     }
     
-    private func showIndicator(for mainWindow: NSWindow) {
+    private func showIndicator(for mainWindow: NSWindow, isIntense: Bool = false) {
         guard let indicator = indicatorWindow, let screen = mainWindow.screen else { return }
         
         // 每次显示时刷新颜色（确保使用最新的用户设置）
         let colorName = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
-        indicator.updateColor(colorFromString(colorName))
+        var color = colorFromString(colorName)
+        
+        if isIntense {
+            // Use the same intensification logic as the particles
+            color = self.visualEffectOverlay?.intensifyColor(color) ?? color
+        }
+        
+        indicator.snapEdge = self.snapEdge
+        indicator.updateColor(color, isIntense: isIntense)
         
         let screenFrame = screen.visibleFrame
         let mainHeight = mainWindow.frame.height
         let mainY = mainWindow.frame.minY
         
-        // 线条尺寸
+        // 线条尺寸 - Fix: Increase window height significantly (2.0x) to allow for stretch animation
+        // "Rectangular clipping" happens when the 1.4x stretch exceeds the window bounds.
         let indicatorWidth: CGFloat = 6
-        let indicatorHeight = mainHeight
+        let contentHeight = mainHeight
+        let windowPadding = mainHeight // Extra vertical padding (0.5x on top, 0.5x on bottom)
+        let indicatorWindowHeight = contentHeight + windowPadding
         
-        var indicatorFrame = NSRect(x: 0, y: mainY, width: indicatorWidth, height: indicatorHeight)
+        var indicatorFrame = NSRect(x: 0, y: mainY - (windowPadding / 2), width: indicatorWidth, height: indicatorWindowHeight)
+        
+        // Ensure we don't go off-screen vertically if possible, or just let it clip screen bounds 
+        // (usually fine for transparent windows, but safer to clamp if needed). 
+        // For now, let's trust the padding logic.
         
         switch snapEdge {
         case .left:
@@ -508,6 +571,22 @@ class EdgeSnapWindowController: NSObject {
         }
         
         indicator.setFrame(indicatorFrame, display: true)
+        
+        // Update the internal view to be centered within this large window
+        if let lineView = indicator.contentView as? SimpleColorView {
+            // Layout logic handles centering, but we need to ensure the view knows its "target" size
+            // For SimpleColorView, it fills the window. We need to shrink it?
+            // Actually, SimpleColorView IS the contentView. If we resize the window, the view resizes.
+            // We need a sublayer or a different layout strategy.
+            // Strategy: Make SimpleColorView have a `stripLayer` that performs the animation, 
+            // instead of animating the whole view's layer.
+            // OR: Let SimpleColorView frame be the full window, but draw the strip in the center.
+            // Let's go with Strategy B: Update SimpleColorView to manage a `containerLayer` sized correctly.
+            
+            // Pass the intended strip height to the view so it can center its content
+            lineView.updateLayout(fullHeight: indicatorWindowHeight, stripHeight: contentHeight)
+        }
+        
         indicator.orderFront(nil) // 显示
     }
     
@@ -567,6 +646,7 @@ class EdgeSnapWindowController: NSObject {
         // 如果鼠标在扩展区域外才折叠
         if !extendedFrame.contains(mouseLocation) {
             stopMouseTrackingTimer()
+            visualEffectOverlay?.stopExpandEffect() // Stop beam immediately on mouse exit logic
             collapse()
         }
     }
@@ -705,7 +785,7 @@ class EdgeSnapWindowController: NSObject {
         
         // Ensure indicator is visible
         indicator.setFrame(indicatorFrame, display: true)
-        indicator.orderFront(nil)
+        indicator.orderFront(self)
     }
     
     // MARK: - Reminder Animation
@@ -752,27 +832,26 @@ class EdgeSnapWindowController: NSObject {
         let tempIndicator = EdgeIndicatorWindow()
         tempIndicator.setFrame(indicatorFrame, display: true)
         // tempIndicator.updateColor(color) // Don't use passed color, force Deep Blue
-        tempIndicator.orderFront(nil)
+        tempIndicator.orderFront(self)
         tempIndicator.startBreathing()
         
         // Start ripple
         rippleOverlay?.startRipple(edge: edge, indicatorFrame: indicatorFrame, color: color)
         
         // Clean up after 8 seconds (extended for better preview)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) {
-            tempIndicator.stopBreathing()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) { [weak self] in
+            tempIndicator.stopBreathing(with: color)
             tempIndicator.orderOut(nil)
-            self.rippleOverlay?.stopRipple()
+            self?.rippleOverlay?.stopRipple()
         }
     }
     
     /// Stop ripple animation (called when user hovers or expands)
     func stopRippleAnimation() {
-        indicatorWindow?.stopBreathing()
         rippleOverlay?.stopRipple()
-        
-        // Reset indicator color to default orange
-        indicatorWindow?.updateColor(.orange)
+        let colorName = UserDefaults.standard.string(forKey: "reminderColor") ?? "orange"
+        let color = colorFromString(colorName)
+        indicatorWindow?.stopBreathing(with: color)
     }
     
     /// Check if the window is in collapsed (hidden) state
@@ -794,6 +873,7 @@ class EdgeIndicatorWindow: NSPanel {
     private var shakeAnimation: CAKeyframeAnimation?
     private var beamLayer: CAGradientLayer?
     private var backgroundLayer: CALayer?
+    var snapEdge: SnapEdge = .none
     
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -805,11 +885,14 @@ class EdgeIndicatorWindow: NSPanel {
         
         // 创建线条视图
         let lineView = SimpleColorView()
-        lineView.backgroundColor = NSColor.orange.withAlphaComponent(0.4)
+        // Start transparent, will be updated immediately
+        lineView.backgroundColor = .clear
         lineView.wantsLayer = true
-        lineView.layer?.cornerRadius = 3
         
         self.contentView = lineView
+        
+        // Setup persistent central highlight (Slit)
+        setupCentralHighlight()
         
         // 追踪区域
         let trackingArea = NSTrackingArea(
@@ -924,7 +1007,7 @@ class EdgeIndicatorWindow: NSPanel {
         beam.add(beamPulse, forKey: "beamPulse")
     }
     
-    func stopBreathing() {
+    func stopBreathing(with color: NSColor) {
         guard isShaking, let contentView = self.contentView else { return }
         isShaking = false
         
@@ -935,26 +1018,155 @@ class EdgeIndicatorWindow: NSPanel {
         beamLayer?.removeFromSuperlayer()
         beamLayer = nil
         
-        // Restore default view state (Orange)
-        if let lineView = contentView as? SimpleColorView {
-            lineView.backgroundColor = NSColor.orange.withAlphaComponent(0.4)
+        // Restore correct user color
+        let lineView = contentView as? SimpleColorView
+        lineView?.backgroundColor = color
+    }
+    
+    func animateSquashAndStretch() {
+        guard let lineView = self.contentView as? SimpleColorView, 
+              let stripLayer = lineView.getStripLayer() else { return }
+        
+        // 1. Setup Pivot & Shape
+        // Since stripLayer is now centered in a larger view, we can animate it directly
+        // The anchor point handling depends on how stripLayer is framed.
+        // In layout(), we set frame center. Let's ensure anchorPoint is center (default 0.5,0.5).
+        
+        stripLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        // Position isn't changing, just scale.
+        
+        // 2. Scale Animation (Elastic Bounce)
+        stripLayer.removeAnimation(forKey: "squash")
+        let scaleAnim = CAKeyframeAnimation(keyPath: "transform.scale.y")
+        // User Feedback: "Stretch is too exaggerated, 1.1x is enough"
+        scaleAnim.values = [1.0, 1.1, 0.96, 1.02, 0.99, 1.0]
+        scaleAnim.keyTimes = [0, 0.15, 0.35, 0.55, 0.8, 1.0]
+        scaleAnim.duration = 0.6
+        scaleAnim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        stripLayer.add(scaleAnim, forKey: "squash")
+        
+        // Ensure central highlight scales with the strip
+        // shineLayer is a sublayer of stripLayer, so it inherits the transform automatically!
+    }
+    
+    private func setupCentralHighlight() {
+        // No-op: Removed in favor of gradient background
+    }
+    
+    func updateColor(_ color: NSColor, isIntense: Bool = false) {
+        if let lineView = self.contentView as? SimpleColorView {
+            lineView.updateState(color: color, edge: self.snapEdge, isIntense: isIntense)
         }
     }
     
-    func updateColor(_ color: NSColor) {
-        if let lineView = self.contentView as? SimpleColorView {
-            lineView.backgroundColor = color.withAlphaComponent(0.5)
-        }
-    }
+    // Removed old transient highlight method
 }
 
 class SimpleColorView: NSView {
     var backgroundColor: NSColor? {
-        didSet { needsDisplay = true }
+        didSet { updateLayer() }
+    }
+    
+    // The "Strip" is now a sublayer, not the root layer
+    private var stripLayer = CALayer()
+    private var shineLayer = CALayer()
+    private var isIntense = false
+    private var currentColor: NSColor?
+    
+    // Layout Metrics
+    private var stripHeight: CGFloat = 100
+    
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupLayer()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupLayer()
+    }
+    
+    private func setupLayer() {
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.clear.cgColor // Root is transparent padding
+        
+        // Strip Layer (The actual visible capsule)
+        stripLayer.cornerRadius = 3
+        stripLayer.masksToBounds = true
+        layer?.addSublayer(stripLayer)
+        
+        // Shine Layer (Inside the strip)
+        shineLayer.backgroundColor = NSColor.white.cgColor
+        shineLayer.opacity = 0
+        
+        let radialMask = CAGradientLayer()
+        radialMask.type = .radial
+        radialMask.colors = [
+            NSColor.white.withAlphaComponent(1.0).cgColor,
+            NSColor.white.withAlphaComponent(0.0).cgColor
+        ]
+        radialMask.locations = [0.0, 1.0]
+        radialMask.startPoint = CGPoint(x: 0.5, y: 0.5)
+        radialMask.endPoint = CGPoint(x: 1.0, y: 1.0)
+        
+        shineLayer.mask = radialMask
+        stripLayer.addSublayer(shineLayer)
+    }
+    
+    func updateLayout(fullHeight: CGFloat, stripHeight: CGFloat) {
+        self.stripHeight = stripHeight
+        self.needsLayout = true
+    }
+    
+    func getStripLayer() -> CALayer? {
+        return stripLayer
+    }
+    
+    func updateState(color: NSColor, edge: SnapEdge, isIntense: Bool) {
+        self.backgroundColor = color
+        self.isIntense = isIntense
+        updateLayer()
+    }
+    
+    override func layout() {
+        super.layout()
+        
+        // Center the strip vertically within the padded view
+        let yPos = (bounds.height - stripHeight) / 2
+        
+        // Important: Disable implicit animations for frame updates
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        stripLayer.frame = CGRect(x: 0, y: yPos, width: bounds.width, height: stripHeight)
+        stripLayer.cornerRadius = bounds.width / 2
+        
+        shineLayer.frame = stripLayer.bounds
+        shineLayer.mask?.frame = shineLayer.bounds
+        CATransaction.commit()
     }
     
     override func updateLayer() {
-        layer?.backgroundColor = backgroundColor?.cgColor
+        guard let _ = layer, let color = backgroundColor else { return }
+        
+        if isIntense {
+            var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            color.usingColorSpace(.sRGB)?.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+            let highSatColor = NSColor(hue: h, saturation: 1.0, brightness: 0.9, alpha: 1.0)
+            
+            stripLayer.backgroundColor = highSatColor.cgColor
+            shineLayer.opacity = 1.0
+            
+            if let mask = shineLayer.mask as? CAGradientLayer {
+                mask.colors = [
+                    NSColor.white.withAlphaComponent(1.0).cgColor,
+                    NSColor.white.withAlphaComponent(0.0).cgColor 
+                ]
+                mask.locations = [0.0, 0.7]
+            }
+        } else {
+            stripLayer.backgroundColor = color.cgColor
+            shineLayer.opacity = 0.0
+        }
     }
     
     override var wantsUpdateLayer: Bool {
