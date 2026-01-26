@@ -134,7 +134,21 @@ class EdgeSnapWindowController: NSObject {
     }
     
     @objc private func windowDidEndLiveResize(_ notification: Notification) {
-        if let window = window {
+        guard let window = window, let screen = window.screen else { return }
+        
+        // Improve Logic: Don't save size if it looks like a system snap/maximize
+        // If window covers > 90% of screen, or is exactly half-screen width/height, skip saving.
+        // Simple heuristic: Only save if it's "floating-like"
+        
+        let screenFrame = screen.visibleFrame
+        let windowFrame = window.frame
+        
+        let isMaximized = windowFrame.width >= screenFrame.width * 0.95 && windowFrame.height >= screenFrame.height * 0.95
+        
+        // Also Filter default half-split views? Maybe too aggressive.
+        // Let's stick to the "Big Enlarge" the user mentioned.
+        
+        if !isMaximized {
             self.lastUserSize = window.frame.size
         }
     }
@@ -299,20 +313,24 @@ class EdgeSnapWindowController: NSObject {
         
         // 检测左边缘
         if windowFrame.minX <= screenFrame.minX + edgeThreshold {
-            snapToEdge(.left)
+            // Smart Logic: If window is already partially off-screen (minX < screenFrame.minX), collapse immediately
+            let immediate = windowFrame.minX < screenFrame.minX
+            snapToEdge(.left, collapseImmediately: immediate)
             return
         }
         
         // 检测右边缘
         if windowFrame.maxX >= screenFrame.maxX - edgeThreshold {
-            snapToEdge(.right)
+            // Smart Logic: If window is already partially off-screen (maxX > screenFrame.maxX), collapse immediately
+            let immediate = windowFrame.maxX > screenFrame.maxX
+            snapToEdge(.right, collapseImmediately: immediate)
             return
         }
     }
     
     // MARK: - Edge Snapping Lifecycle
     
-    private func snapToEdge(_ edge: SnapEdge) {
+    private func snapToEdge(_ edge: SnapEdge, collapseImmediately: Bool = false) {
         guard let window = window else { return }
         // 注意：这里使用 NSScreen.main 确保尽可能在这个屏幕吸附。实际逻辑可根据 window.screen
         guard let screen = window.screen ?? NSScreen.main else { return }
@@ -320,6 +338,14 @@ class EdgeSnapWindowController: NSObject {
         snapEdge = edge
         preferredEdge = edge // Save preference
         originalFrame = window.frame
+        
+        if collapseImmediately {
+            // Direct Collapse: Skip the snap-to-edge animation and go straight to hidden
+            // We set state to .snapped temporarily so collapse() knows where to go
+            state = .snapped
+            collapse()
+            return
+        }
         
         let screenFrame = screen.visibleFrame
         var newFrame = window.frame
@@ -756,7 +782,7 @@ class EdgeSnapWindowController: NSObject {
     
     /// Public API for minimizing (intercepted from AppDelegate)
     func snapToPreferredEdge() {
-        snapToEdge(preferredEdge)
+        snapToEdge(preferredEdge, collapseImmediately: true)
     }
 }
 
