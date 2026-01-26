@@ -55,8 +55,8 @@ class ReminderManager: NSObject, ObservableObject, UNUserNotificationCenterDeleg
     // MARK: - Timer Management
     
     private func startPeriodicCheck() {
-        // Check every 30 seconds
-        checkTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+        // Check every 1 second for precision
+        checkTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             self?.checkReminders()
         }
         // Also run immediately
@@ -67,8 +67,22 @@ class ReminderManager: NSObject, ObservableObject, UNUserNotificationCenterDeleg
     
     /// Update the list of pending reminders from the editor
     func updateReminders(_ reminders: [PendingReminder]) {
+        // Check for deadline changes to allow re-triggering
+        for newReminder in reminders {
+            if let oldReminder = self.pendingReminders.first(where: { $0.todoKey == newReminder.todoKey }) {
+                // If deadline changed significantly (more than 1s), reset trigger status
+                if abs(oldReminder.deadline.timeIntervalSince(newReminder.deadline)) > 1 {
+                    triggeredReminders.remove(newReminder.todoKey)
+                }
+            } else {
+                // New reminder, ensure not marked as triggered (unless it's a recycled ID? Unlikely, but safe to clear)
+                triggeredReminders.remove(newReminder.todoKey)
+            }
+        }
+        
         self.pendingReminders = reminders
-        // Clean up triggered reminders that are no longer in the list
+        
+        // Clean up triggered reminders that are no longer in the list at all
         let currentKeys = Set(reminders.map { $0.todoKey })
         triggeredReminders = triggeredReminders.intersection(currentKeys)
     }

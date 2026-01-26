@@ -2478,13 +2478,22 @@ textarea {
   display: block !important;
 }
 
-/* On row hover: SWAP bell for info icon */
-.todo-row:hover .info-btn .bell-icon-display {
+/* On row hover: SWAP bell for info icon (ONLY if NOT ringing) */
+.todo-row:hover .info-btn:not(.is-ringing) .bell-icon-display {
   display: none !important;
 }
 
-.todo-row:hover .info-btn .info-icon-display {
+.todo-row:hover .info-btn:not(.is-ringing) .info-icon-display {
   display: block !important;
+}
+
+/* Ensure ringing bell stays visible even on hover */
+.info-btn.is-ringing .bell-icon-display {
+  display: block !important;
+}
+
+.info-btn.is-ringing .info-icon-display {
+  display: none !important;
 }
 
 .todo-details-panel.apple-style .switch {
@@ -4274,4 +4283,148 @@ select:focus,
 
 .datetime-pill:active {
   transform: scale(0.95);
+}
+
+/* --- Hover Delay UI --- */
+
+/* Ensure wrapper is positioned for absolute child */
+.todo-content-wrapper {
+  position: relative;
+  /* Ensure z-index is managed if needed, but default auto is fine */
+}
+
+/* Dimming Effect */
+/* Apply to all children EXCEPT the hover card */
+.todo-content-wrapper.dimmed>*:not(.todo-hover-card) {
+  opacity: 0.3;
+  filter: grayscale(100%);
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+/* Hover Card Container */
+.todo-hover-card {
+  position: absolute;
+  top: 50%;
+  /* Center vertically relative to content wrapper (which is usually row height) */
+  left: 0;
+  transform: translateY(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-radius: 12px;
+  padding: 6px 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  gap: 8px;
+  white-space: nowrap;
+  animation: cardFadeIn 0.2s ease-out;
+  pointer-events: auto;
+  /* Ensure clicks work */
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-40%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+}
+
+/* Label "延时" */
+.hover-card-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-right: 4px;
+}
+
+/* Action Buttons Group */
+.hover-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Individual Delay Button */
+.hover-delay-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: normal;
+}
+
+.hover-delay-btn:hover {
+  background: #007aff;
+  color: white;
+  border-color: #007aff;
+  box-shadow: 0 2px 4px rgba(0, 122, 255, 0.2);
+}
+
+.hover-delay-btn:active {
+  transform: scale(0.96);
+}
+
+/* Close 'x' Button */
+.hover-card-close {
+  margin-left: 6px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #8e8e93;
+  transition: all 0.15s ease;
+}
+
+.hover-card-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
+
+/* Dark Mode Overrides */
+@media (prefers-color-scheme: dark) {
+  .todo-hover-card {
+    background: rgba(45, 45, 45, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  .hover-card-label {
+    color: #fff;
+  }
+
+  .hover-delay-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: transparent;
+    color: #eee;
+  }
+
+  .hover-delay-btn:hover {
+    background: #0a84ff;
+    color: white;
+  }
+
+  .hover-card-close {
+    color: #999;
+  }
+
+  .hover-card-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
 }

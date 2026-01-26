@@ -1086,6 +1086,39 @@ export default function TodoView() {
         });
     };
 
+    const handleDelay = (key: string, minutes: number) => {
+        editor.update(() => {
+            const node = $getNodeByKey(key);
+            if ($isListItemNode(node)) {
+                const children = node.getChildren();
+                const reminderNode = children.find(c => $isReminderNode(c)) as ReminderNode | undefined;
+
+                if (reminderNode) {
+                    const data = reminderNode.getData();
+                    // Stop any existing ringing
+                    if ((window as any).stopBellAnimation) {
+                        (window as any).stopBellAnimation(key);
+                    }
+
+                    // Delay based on CURRENT time rounded down to minute (discard seconds)
+                    const now = new Date();
+                    now.setSeconds(0, 0);
+                    const newTime = now.getTime() + minutes * 60 * 1000;
+
+                    reminderNode.setData({
+                        ...data,
+                        time: newTime,
+                        hasDate: true,
+                        // Ensure it has time if it didn't (though delay implies time)
+                        hasTime: true,
+                        // Reset auto-refreshed/completed status if needed? 
+                        // Probably just update time.
+                    });
+                }
+            }
+        });
+    };
+
     const clearCompletedTasks = (mode: 'all' | '1month' | '6months' | '1year') => {
         editor.update(() => {
             const root = $getRoot();
@@ -1183,6 +1216,7 @@ export default function TodoView() {
                         onEnter={handleEnter}
                         onDelete={handleDelete}
                         onOpenReminder={() => openReminderSettings(todo.key, todo.reminder)}
+                        onDelay={handleDelay}
                         isSelected={selectedKeys.has(todo.key)}
                         isClosing={closingKeys.has(todo.key)}
                         onRowClick={(e) => handleRowClick(todo.key, e)}
@@ -1303,6 +1337,7 @@ interface RowProps {
     onEnter: (key: string, e: React.KeyboardEvent) => void;
     onDelete: (key: string) => void;
     onOpenReminder: () => void;
+    onDelay: (key: string, minutes: number) => void;
     isCompletedMode: boolean;
     isRinging: boolean;
     highlightRange?: [number, number] | undefined;
@@ -1314,11 +1349,13 @@ interface RowProps {
     onCaretChange?: (pos: number) => void;
 }
 
-function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, isCompletedMode, isRinging, highlightRange, isSelected, isClosing, onRowClick, onFocus, onBlur, onCaretChange }: RowProps) {
+function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChange, onEnter, onDelete, onOpenReminder, onDelay, isCompletedMode, isRinging, highlightRange, isSelected, isClosing, onRowClick, onFocus, onBlur, onCaretChange }: RowProps) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [localText, setLocalText] = useState(todo.text);
     const isComposing = useRef(false);
     const [showShimmer, setShowShimmer] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
+    const [isHoverDismissed, setIsHoverDismissed] = useState(false);
 
     useEffect(() => {
         if (!isCompletedMode && todo.reminder?.autoRefreshedAt) {
@@ -1330,6 +1367,11 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
             }
         }
     }, [todo.reminder?.autoRefreshedAt, isCompletedMode]);
+
+    // Reset hover dismiss state when reminder time/status changes
+    useEffect(() => {
+        setIsHoverDismissed(false);
+    }, [todo.reminder?.time, todo.reminder?.hasReminder]);
 
     useEffect(() => {
         registerRef(todo.key, textareaRef.current);
@@ -1345,6 +1387,10 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
     const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const checked = e.target.checked;
         if (checked) {
+            // Stop ringing if completed
+            if ((window as any).stopBellAnimation) {
+                (window as any).stopBellAnimation(todo.key);
+            }
             onToggle(true);
         } else {
             onToggle(false);
@@ -1460,6 +1506,8 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
 
     const metaText = ""; // Removed in favor of getMetaInfoParts()
     const isOverdue = todo.reminder && todo.reminder.hasDate && new Date().getTime() > todo.reminder.time && !todo.checked && todo.reminder.repeatType === 'none';
+    const isTimeReached = todo.reminder && (todo.reminder.hasDate || todo.reminder.hasTime) && new Date().getTime() >= (todo.reminder.time - 61000); // Allow 1 min early + buffer for ringing
+    const showDelayHover = isHovered && !isHoverDismissed && !isCompletedMode && !todo.checked && isTimeReached;
 
     const renderMirrorContent = () => {
         const prefix = getPriorityPrefix() || '';
@@ -1490,9 +1538,11 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
 
     return (
         <div
-            className={`todo-row ${todo.checked ? 'completed' : ''} ${todo.reminder ? 'has-reminder' : ''} ${isSelected ? 'selected' : ''} ${todo.isSubItem ? 'sub-item' : ''}`}
+            className={`todo-row ${todo.checked ? 'completed' : ''} ${todo.reminder ? 'has-reminder' : ''} ${isSelected ? 'selected' : ''} ${todo.isSubItem ? 'sub-item' : ''} ${showDelayHover ? 'hover-delay-active' : ''}`}
             data-todo-key={todo.key}
             onClick={onRowClick}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
             style={{
                 transform: isClosing ? 'scale(0.95)' : 'scale(1)',
                 opacity: isClosing ? 0 : 1,
@@ -1517,7 +1567,25 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
                 />
             </div>
 
-            <div className="todo-content-wrapper">
+            <div className={`todo-content-wrapper ${showDelayHover ? 'dimmed' : ''}`}>
+                {showDelayHover && (
+                    <div className="todo-hover-card" onClick={(e) => e.stopPropagation()}>
+                        <div className="hover-card-label">延时</div>
+                        <div className="hover-card-actions">
+                            {[5, 10, 30, 60].map(m => (
+                                <button key={m} className="hover-delay-btn" onClick={() => { onDelay(todo.key, m); setIsHoverDismissed(true); }}>
+                                    {m}分钟
+                                </button>
+                            ))}
+                        </div>
+                        <div className="hover-card-close" onClick={() => setIsHoverDismissed(true)}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </div>
+                    </div>
+                )}
                 <div className="todo-input-mirror-container">
                     <div
                         className="todo-input-mirror"
@@ -1630,7 +1698,7 @@ function TodoItemRow({ todo, registerRef, onToggle, onTextChange, onPriorityChan
 
             <div className="todo-icon-group">
                 {!isCompletedMode && localText.trim() !== '' && (
-                    <div className={`info-btn ${todo.reminder?.hasReminder ? 'has-reminder' : ''}`} onClick={onOpenReminder}>
+                    <div className={`info-btn ${todo.reminder?.hasReminder ? 'has-reminder' : ''} ${isRinging ? 'is-ringing' : ''}`} onClick={onOpenReminder}>
                         {todo.reminder?.hasReminder && (
                             <div className={`bell-ripple-container ${isRinging ? 'bell-ringing' : ''}`}>
                                 <svg className="bell-icon-display" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
