@@ -538,8 +538,9 @@ class EdgeSnapWindowController: NSObject {
         var color = colorFromString(colorName)
         
         if isIntense {
-            // Use the same intensification logic as the particles
-            color = self.visualEffectOverlay?.intensifyColor(color) ?? color
+            // NOTE: We no longer override the base 'color' here.
+            // We pass the standard color to the indicator, and it handles 
+            // the intensification for the center pulse internally.
         }
         
         indicator.snapEdge = self.snapEdge
@@ -1099,17 +1100,19 @@ class SimpleColorView: NSView {
         shineLayer.backgroundColor = NSColor.white.cgColor
         shineLayer.opacity = 0
         
-        let radialMask = CAGradientLayer()
-        radialMask.type = .radial
-        radialMask.colors = [
-            NSColor.white.withAlphaComponent(1.0).cgColor,
+        let linearMask = CAGradientLayer()
+        linearMask.type = .axial // Linear gradient covers full width horizontally
+        linearMask.colors = [
+            NSColor.white.withAlphaComponent(0.0).cgColor,
+            NSColor.white.withAlphaComponent(0.8).cgColor,
+            NSColor.white.withAlphaComponent(0.8).cgColor,
             NSColor.white.withAlphaComponent(0.0).cgColor
         ]
-        radialMask.locations = [0.0, 1.0]
-        radialMask.startPoint = CGPoint(x: 0.5, y: 0.5)
-        radialMask.endPoint = CGPoint(x: 1.0, y: 1.0)
+        linearMask.locations = [0.0, 0.4, 0.6, 1.0]
+        linearMask.startPoint = CGPoint(x: 0.5, y: 0.0)
+        linearMask.endPoint = CGPoint(x: 0.5, y: 1.0)
         
-        shineLayer.mask = radialMask
+        shineLayer.mask = linearMask
         stripLayer.addSublayer(shineLayer)
     }
     
@@ -1151,17 +1154,24 @@ class SimpleColorView: NSView {
         if isIntense {
             var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
             color.usingColorSpace(.sRGB)?.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
-            let highSatColor = NSColor(hue: h, saturation: 1.0, brightness: 0.9, alpha: 1.0)
             
-            stripLayer.backgroundColor = highSatColor.cgColor
+            // "Neon" algorithm: Max brightness (1.0) and high saturation (0.9)
+            // This prevents the "blackened" look and ensures it looks like a light source.
+            let intenseColor = NSColor(hue: h, saturation: 0.9, brightness: 1.0, alpha: 1.0)
+            
+            stripLayer.backgroundColor = color.cgColor // Standard color for the ends
+            shineLayer.backgroundColor = intenseColor.cgColor // Vibrant neon for the center
             shineLayer.opacity = 1.0
             
             if let mask = shineLayer.mask as? CAGradientLayer {
+                // Pulse the neon color in the center section
                 mask.colors = [
+                    NSColor.white.withAlphaComponent(0.0).cgColor,
+                    NSColor.white.withAlphaComponent(1.0).cgColor,
                     NSColor.white.withAlphaComponent(1.0).cgColor,
                     NSColor.white.withAlphaComponent(0.0).cgColor 
                 ]
-                mask.locations = [0.0, 0.7]
+                mask.locations = [0.0, 0.4, 0.6, 1.0]
             }
         } else {
             stripLayer.backgroundColor = color.cgColor

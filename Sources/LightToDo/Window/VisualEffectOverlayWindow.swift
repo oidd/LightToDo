@@ -5,7 +5,7 @@ class VisualEffectOverlayWindow: NSPanel {
     private var particleLayer: CAEmitterLayer?
     private var beamLayer: CALayer?
     private var beamMaskLayer: CAShapeLayer?
-    private var dustLayer: CAEmitterLayer?
+    private var dustLayer: CALayer?
     
     init() {
         // Start as a zero-size window but we will expand it to screen size when needed.
@@ -71,8 +71,8 @@ class VisualEffectOverlayWindow: NSPanel {
         
         emitter.add(burst, forKey: "burst")
         
-        // 4. Cleanup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+        // 4. Cleanup (User Feedback: "Disappearing lag is a problem")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             emitter.removeFromSuperlayer()
         }
     }
@@ -102,8 +102,8 @@ class VisualEffectOverlayWindow: NSPanel {
         
         let beamContent = CAGradientLayer()
         beamContent.colors = [
-            NSColor.white.withAlphaComponent(0.18).cgColor, // Lighter source
-            NSColor.white.withAlphaComponent(0.08).cgColor, 
+            NSColor.white.withAlphaComponent(0.12).cgColor, // Softened from 0.18 for less "foggy" look
+            NSColor.white.withAlphaComponent(0.05).cgColor, // Softened from 0.08
             NSColor.white.withAlphaComponent(0.00).cgColor  
         ]
         beamContent.locations = [0.0, 0.4, 1.0]
@@ -155,13 +155,16 @@ class VisualEffectOverlayWindow: NSPanel {
         // To combine masks, we add shapeMask to a container or nest them.
         // Let's use the alpha of the gradient to soften the vertical edges.
         beamContent.mask = softMask // Horizontal is handled by beamContent colors, vertical by softMask.
-        // But we need the trapezoid shape!
-        // We'll apply the shapeMask to the beamContent and the softMask to a container.
         
-        // Create container for grouping effects under a single mask
+        // Create a reusable path for the trapezoid shape
+        let trapezoidPath = path
+        
+        // Create container for grouping beam effects under a single mask
         let container = CALayer()
         container.frame = beamRect
-        container.mask = shapeMask
+        let beamShapeMask = CAShapeLayer()
+        beamShapeMask.path = trapezoidPath
+        container.mask = beamShapeMask
         
         // Add beam to container
         beamContent.frame = container.bounds
@@ -202,15 +205,20 @@ class VisualEffectOverlayWindow: NSPanel {
             addBorderLine(from: CGPoint(x: brBounds.width, y: brBounds.height - flareAmt), to: CGPoint(x: 0, y: brBounds.height))
         }
         
-        // 3. Sparkle Effect (Now inside container to share mask and coordinates)
+        // 3. Sparkle Effect (Now sibling of container to allow independent fade)
+        let sparklesContainer = CALayer()
+        sparklesContainer.frame = layer.bounds
+        
         let sparkles = CAEmitterLayer()
-        sparkles.emitterPosition = CGPoint(x: container.bounds.midX, y: container.bounds.midY)
+        sparkles.frame = sparklesContainer.bounds
+        sparkles.emitterPosition = CGPoint(x: beamRect.midX, y: beamRect.midY)
         sparkles.emitterShape = .rectangle
-        sparkles.emitterSize = container.bounds.size
-        sparkles.renderMode = .unordered
+        sparkles.emitterSize = beamRect.size
+        sparkles.renderMode = .additive // Use additive to ensure overlapping particles get brighter, not darker
+        sparkles.zPosition = 200
         
         let mote = CAEmitterCell()
-        mote.birthRate = 180 
+        mote.birthRate = 80 // Reduced saturation-heavy particles to prevent clumping
         mote.lifetime = 4.0
         mote.lifetimeRange = 2.0
         mote.velocity = 10
@@ -223,23 +231,55 @@ class VisualEffectOverlayWindow: NSPanel {
         mote.alphaSpeed = -0.25
         mote.contents = createParticleImage()
         
-        sparkles.emitterCells = [mote]
+        // Add white particles for better visibility and to neutralise "blackened" look
+        let whiteMote = CAEmitterCell()
+        whiteMote.birthRate = 60
+        whiteMote.lifetime = 4.0
+        whiteMote.lifetimeRange = 2.0
+        whiteMote.velocity = 10
+        whiteMote.velocityRange = 8
+        whiteMote.emissionRange = .pi * 2
+        whiteMote.scale = 0.10
+        whiteMote.scaleRange = 0.05
+        whiteMote.color = NSColor.white.withAlphaComponent(0.8).cgColor
+        whiteMote.alphaSpeed = -0.3
+        whiteMote.contents = createParticleImage()
         
-        // User Feedback: "Decrease particle density further from the strip"
+        sparkles.emitterCells = [mote, whiteMote]
+        
         // Applying a very subtle fade at the very edge (95% - 100%)
         let densityMask = CAGradientLayer()
-        densityMask.frame = container.bounds
-        densityMask.startPoint = (edge == .left) ? CGPoint(x: 0, y: 0.5) : CGPoint(x: 1, y: 0.5)
-        densityMask.endPoint = (edge == .left) ? CGPoint(x: 1, y: 0.5) : CGPoint(x: 0, y: 0.5)
-        densityMask.colors = [
+        densityMask.frame = sparklesContainer.bounds
+        
+        let maskSublayer = CAGradientLayer()
+        maskSublayer.frame = beamRect
+        maskSublayer.startPoint = (edge == .left) ? CGPoint(x: 0, y: 0.5) : CGPoint(x: 1, y: 0.5)
+        maskSublayer.endPoint = (edge == .left) ? CGPoint(x: 1, y: 0.5) : CGPoint(x: 0, y: 0.5)
+        maskSublayer.colors = [
             NSColor.white.withAlphaComponent(1.0).cgColor,
             NSColor.white.withAlphaComponent(0.0).cgColor  
         ]
-        densityMask.locations = [0.0, 0.95] 
+        maskSublayer.locations = [0.0, 0.95]
+        densityMask.addSublayer(maskSublayer)
         sparkles.mask = densityMask
         
-        container.addSublayer(sparkles) 
-        self.dustLayer = sparkles
+        // --- ADDED: Applying the same trapezoid constraint to particles ---
+        let sparklesShapeMask = CAShapeLayer()
+        sparklesShapeMask.path = trapezoidPath
+        // Since trapezoidPath is relative to beamRect but sparklesContainer is layer.bounds, 
+        // we offset the mask or the layer. Easiest is to make the mask shape layer's frame match beamRect.
+        let constraintMask = CALayer()
+        constraintMask.frame = sparklesContainer.bounds
+        let trapLayer = CAShapeLayer()
+        trapLayer.path = trapezoidPath
+        trapLayer.frame = beamRect
+        constraintMask.addSublayer(trapLayer)
+        
+        sparklesContainer.mask = constraintMask
+        sparklesContainer.addSublayer(sparkles)
+        
+        layer.addSublayer(sparklesContainer) 
+        self.dustLayer = sparklesContainer
         
         layer.addSublayer(container)
         self.beamLayer = container
@@ -263,28 +303,39 @@ class VisualEffectOverlayWindow: NSPanel {
         self.beamLayer = nil
         self.dustLayer = nil
         
-        CATransaction.begin()
-        CATransaction.setCompletionBlock {
-            beamToRemove.removeFromSuperlayer()
-            dustToRemove.removeFromSuperlayer()
-        }
+        // 1. Beam Fade Out (Immediate)
+        let beamFade = CABasicAnimation(keyPath: "opacity")
+        beamFade.fromValue = 1.0
+        beamFade.toValue = 0.0
+        beamFade.duration = 0.2 // Vanish quickly
+        beamFade.fillMode = .forwards
+        beamFade.isRemovedOnCompletion = false
+        beamToRemove.add(beamFade, forKey: "fadeOut")
         
-        let fadeOut = CABasicAnimation(keyPath: "opacity")
-        fadeOut.fromValue = 1.0
-        fadeOut.toValue = 0.0
-        fadeOut.duration = 0.6 // Slow fade for "residual light" effect
-        fadeOut.fillMode = .forwards
-        fadeOut.isRemovedOnCompletion = false
+        // 2. Dust Fade Out (Lingering Afterglow)
+        let dustFade = CABasicAnimation(keyPath: "opacity")
+        dustFade.fromValue = 1.0
+        dustFade.toValue = 0.0
+        dustFade.duration = 2.5 // Long linger as requested
+        dustFade.fillMode = .forwards
+        dustFade.isRemovedOnCompletion = false
+        dustToRemove.add(dustFade, forKey: "fadeOut")
         
-        beamToRemove.add(fadeOut, forKey: "fadeOut")
-        dustToRemove.add(fadeOut, forKey: "fadeOut")
-        
-        // Stop emitting new particles immediately, let existing ones fade
+        // Stop emitting new particles immediately
         if let emitter = dustToRemove as? CAEmitterLayer {
+            emitter.birthRate = 0
+        } else if let emitter = dustToRemove.sublayers?.first(where: { $0 is CAEmitterLayer }) as? CAEmitterLayer {
             emitter.birthRate = 0
         }
         
-        CATransaction.commit()
+        // Independent cleanups
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            beamToRemove.removeFromSuperlayer()
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            dustToRemove.removeFromSuperlayer()
+        }
     }
     
     // MARK: - Helpers
@@ -295,11 +346,10 @@ class VisualEffectOverlayWindow: NSPanel {
         var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         color.usingColorSpace(.sRGB)?.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
         
-        // Drive saturation to max for punchy color
-        let newS: CGFloat = 1.0 
-        // Keep brightness in a range that is colorful but NEVER dark.
-        // 0.9 is very bright, 0.7 is rich. Let's aim for 0.85.
-        let newB: CGFloat = 0.85
+        // 0.85 is softer for better blending in additive mode. 
+        let newS: CGFloat = 0.85 
+        // 1.0 is max brightness to ensure they always look like light sources.
+        let newB: CGFloat = 1.0
         
         return NSColor(hue: h, saturation: newS, brightness: newB, alpha: 1.0)
     }
