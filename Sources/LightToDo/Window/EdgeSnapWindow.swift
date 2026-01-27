@@ -808,15 +808,19 @@ class EdgeSnapWindowController: NSObject {
         // 3. Hide indicator
         indicatorWindow?.orderOut(nil)
         
-        // Fix: Restore state to .expanded so auto-collapse works
-        if snapEdge == .none {
-            snapEdge = preferredEdge
-        }
-        state = .expanded
-        hasUserInteraction = false
-        
-        // 4. Start tracking mouse immediately so it collapses if user leaves
-        startMouseTrackingTimer() 
+        // Fix: Only restore state and start tracking if the window was effectively closed/minimized.
+        // If it was just backgrounded (floating), we simply want to bring it to front without changing state.
+        if !window.isVisible || window.isMiniaturized {
+             // Restore state to .expanded so auto-collapse works
+            if snapEdge == .none {
+                snapEdge = preferredEdge
+            }
+            state = .expanded
+            hasUserInteraction = false
+            
+            // 4. Start tracking mouse immediately so it collapses if user leaves
+            startMouseTrackingTimer() 
+        } 
         
         // Restore move protection after animation finishes
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
@@ -859,6 +863,11 @@ class EdgeSnapWindowController: NSObject {
         case .right:
             indicatorFrame.origin.x = screenFrame.maxX - indicatorWidth
         default: break
+        }
+        
+        if let lineView = indicator.contentView as? SimpleColorView {
+            // Fix: Default strip height is 100. We must update it to match the window height.
+            lineView.updateLayout(fullHeight: indicatorHeight, stripHeight: indicatorHeight)
         }
         
         // Ensure indicator is visible

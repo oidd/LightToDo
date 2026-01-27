@@ -38,7 +38,7 @@ struct SettingsView: View {
                 
                 // 3. 关闭主面板时的操作
                 Picker("点击窗口关闭按钮 (x) 时", selection: $closeAction) {
-                    Text("最小化到程序坞").tag("minimize")
+                    Text("折叠到快照条").tag("minimize")
                     Text("退出应用").tag("quit")
                 }
                 .pickerStyle(.menu)
@@ -65,7 +65,7 @@ struct SettingsView: View {
                 .pickerStyle(.menu)
                 
                 // 5. 贴边长条颜色
-                Picker("贴边长条颜色", selection: $reminderColor) {
+                Picker("快照条颜色", selection: $reminderColor) {
                     ForEach(availableColors, id: \.0) { colorInfo in
                         Label {
                             Text(colorInfo.1)
