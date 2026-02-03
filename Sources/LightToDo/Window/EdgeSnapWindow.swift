@@ -962,6 +962,8 @@ class EdgeIndicatorWindow: NSPanel {
     private var backgroundLayer: CALayer?
     var snapEdge: SnapEdge = .none
     
+    private var isMouseInsideVisibleStrip = false
+    
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         self.level = .floating
@@ -981,10 +983,10 @@ class EdgeIndicatorWindow: NSPanel {
         // Setup persistent central highlight (Slit)
         setupCentralHighlight()
         
-        // 追踪区域
+        // 追踪区域 - Added mouseMoved to handle sliding into the strip from padding
         let trackingArea = NSTrackingArea(
-            rect: .zero, // 将在 layout 时更新，或者全覆盖
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            rect: .zero, 
+            options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect],
             owner: self,
             userInfo: nil
         )
@@ -992,7 +994,32 @@ class EdgeIndicatorWindow: NSPanel {
     }
     
     override func mouseEntered(with event: NSEvent) {
-        onMouseEntered?()
+        checkHit(with: event)
+    }
+    
+    override func mouseMoved(with event: NSEvent) {
+        checkHit(with: event)
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        isMouseInsideVisibleStrip = false
+    }
+    
+    private func checkHit(with event: NSEvent) {
+        guard let lineView = contentView as? SimpleColorView else { return }
+        
+        let point = lineView.convert(event.locationInWindow, from: nil)
+        let isInside = lineView.isPointInStrip(point)
+        
+        if isInside && !isMouseInsideVisibleStrip {
+            isMouseInsideVisibleStrip = true
+            onMouseEntered?()
+        } else if !isInside && isMouseInsideVisibleStrip {
+             // Optional: If user wants to "cancel" expansion if they move out before it starts?
+             // But usually onMouseEntered triggers immediately. 
+             // We just reset the flag so they can enter again.
+             isMouseInsideVisibleStrip = false
+        }
     }
     
     // MARK: - Breathing Animation (Deep Blue Stretch Pulse)
@@ -1215,6 +1242,13 @@ class SimpleColorView: NSView {
         self.backgroundColor = color
         self.isIntense = isIntense
         updateLayer()
+    }
+    
+    func isPointInStrip(_ point: CGPoint) -> Bool {
+        // Calculate the vertical range of the visible strip
+        let yPos = (bounds.height - stripHeight) / 2
+        let stripRect = CGRect(x: 0, y: yPos, width: bounds.width, height: stripHeight)
+        return stripRect.contains(point)
     }
     
     override func layout() {
