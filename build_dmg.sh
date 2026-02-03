@@ -4,6 +4,8 @@
 # 功能：自动构建 App Bundle 并生成可分发的 .dmg 文件
 
 set -e
+# 确保脚本在它所在的目录下运行，允许从任意位置执行
+cd "$(dirname "$0")"
 
 # 配置
 APP_NAME="Light To Do"
@@ -33,31 +35,9 @@ rm -f "$DMG_NAME" "$TEMP_DMG"
 # 创建临时读写镜像
 hdiutil create -srcfolder "$STAGING_DIR" -volname "$APP_NAME" -fs HFS+ -fsargs "-c c=64,a=16,e=16" -format UDRW "$TEMP_DMG"
 
-# 挂载镜像以进行（可选的）样式设置
-# 如果需要设置背景图或图标位置，通常需要更复杂的脚本，这里先按标准制作
+# 挂载镜像以进行格式化
 device=$(hdiutil attach -readwrite -noverify "$TEMP_DMG" | egrep '^/dev/' | sed 1q | awk '{print $1}')
 sleep 2 # 等待挂载
-
-# 这里可以添加 shell 命令来排列图标，但基本分发已足够
-# echo '
-#    tell application "Finder"
-#      tell disk "'$APP_NAME'"
-#            open
-#            set current view of container window to icon view
-#            set toolbar visible of container window to false
-#            set statusbar visible of container window to false
-#            set the bounds of container window to {400, 100, 885, 430}
-#            set viewOptions to the icon view options of container window
-#            set icon size of viewOptions to 100
-#            set arrangement of viewOptions to not arranged
-#            set position of item "'$APP_NAME'.app" of container window to {100, 100}
-#            set position of item "Applications" of container window to {375, 100}
-#            update without registering applications
-#            delay 2
-#            close
-#      end tell
-#    end tell
-# ' | osascript
 
 sync
 hdiutil detach "$device"
